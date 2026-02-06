@@ -1,0 +1,34 @@
+services:
+  mona_dev:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      # === Передаем аргументы сборки ===
+      args:
+        # ${VARIABLE:-default} означает: возьми переменную из системы,
+        # если её нет — используй значение по умолчанию
+        USERNAME: ${USER:-mona_dev}
+        USER_UID: ${UID:-1000}
+        USER_GID: ${GID:-1000}
+    
+    image: mona_robot:humble
+    container_name: mona_dev
+    
+    network_mode: host
+    ipc: host
+    pid: host
+    privileged: true
+    
+    environment:
+      - DISPLAY=${DISPLAY}
+      - QT_X11_NO_MITSHM=1
+    
+    volumes:
+      # Важно: путь внутри контейнера /home/${USER:-mona_dev}/mona_ws/src
+      - ./src:/home/${USER:-mona_dev}/mona_ws/src
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw
+      - ~/.Xauthority:/home/${USER:-mona_dev}/.Xauthority:rw
+
+    command: sleep infinity
+    tty: true
+    stdin_open: true
