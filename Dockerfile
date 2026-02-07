@@ -12,6 +12,9 @@ RUN apt-get update && apt-get install -y \
     ros-humble-rviz2 \
     ros-humble-gazebo-ros-pkgs \
     sudo \
+    python3-pip \
+    && pip3 install --upgrade pip \
+    && pip3 install "pycodestyle<2.9.0" "flake8<5.0.0" "autopep8<2.1.0" \
     && rm -rf /var/lib/apt/lists/*
 
 # 2. User Mapping

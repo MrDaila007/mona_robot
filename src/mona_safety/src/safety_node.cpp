@@ -11,11 +11,10 @@ using namespace std::chrono_literals;
 class SafetyNode : public rclcpp_lifecycle::LifecycleNode {
 public:
     // Конструктор: инициализируем имя узла
-    explicit SafetyNode(const rclcpp::NodeOptions & options = rclcpp::NodeOptions())
-    : rclcpp_lifecycle::LifecycleNode("safety_node", options)
-    {
+    explicit SafetyNode(const rclcpp::NodeOptions & options = rclcpp::NodeOptions()) :
+        rclcpp_lifecycle::LifecycleNode("safety_node", options) {
     }
-    
+
     // 1. TRANSITION: Unconfigured -> Inactive
     // Создаём паблишеры и таймеры (выделяем ресурсы)
     rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn
@@ -86,7 +85,7 @@ private:
         // Если узел активен - шлём нули
         if (this->get_current_state().id() == lifecycle_msgs::msg::State::PRIMARY_STATE_ACTIVE) {
             auto msg = std::make_unique<geometry_msgs::msg::Twist>();
-            msg->linear.x = 0.0;
+            msg->linear.x  = 0.0;
             msg->angular.z = 0.0;
             cmd_vel_pub_->publish(std::move(msg));
         }

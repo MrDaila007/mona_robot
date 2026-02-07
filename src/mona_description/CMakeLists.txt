@@ -14,4 +14,25 @@ install(
   DESTINATION share/${PROJECT_NAME}
 )
 
+if(BUILD_TESTING)
+  find_package(ament_lint_auto REQUIRED)
+
+  list(APPEND AMENT_LINT_AUTO_EXCLUDE
+    ament_cmake_uncrustify
+    ament_cmake_copyright
+    ament_cmake_cpplint
+    ament_cmake_flake8
+    ament_copyright
+    ament_cpplint
+    uncrustify
+    cpplint
+  )
+
+  ament_lint_auto_find_test_dependencies()
+
+  # Запускаем flake8 вручную, указывая на общий конфиг в корне
+  find_package(ament_cmake_flake8 REQUIRED)
+  ament_flake8(CONFIG_FILE "${CMAKE_CURRENT_SOURCE_DIR}/../../configs/setup.cfg")
+endif()
+
 ament_package()

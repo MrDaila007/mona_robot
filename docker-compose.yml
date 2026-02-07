@@ -27,6 +27,7 @@ services:
       # Важно: путь внутри контейнера /home/${USER:-mona_dev}/mona_ws/src
       - ./src:/home/${USER:-mona_dev}/mona_ws/src
       - ./scripts:/home/${USER:-mona_dev}/mona_ws/scripts
+      - ./configs:/home/${USER:-mona_dev}/mona_ws/configs
       - /tmp/.X11-unix:/tmp/.X11-unix:rw
       - ~/.Xauthority:/home/${USER:-mona_dev}/.Xauthority:rw
 
