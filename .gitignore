@@ -1,7 +1,49 @@
+# === ROS 2 Build Artifacts ===
 build/
 install/
 log/
-.vscode/
-.idea/
-*.pyc
+# Temp files of tests
+test_results/
+
+# === Python ===
 __pycache__/
+*.py[cod]
+*$py.class
+.Python
+env/
+venv/
+.venv/
+*.egg-info/
+
+# === C++ ===
+*.obj
+*.o
+*.a
+*.so
+*.dylib
+
+# === Editors & IDEs ===
+
+# Obsidian
+.obsidian/
+.trash/
+
+# VS Code
+.vscode/
+# If you want to share the launch settings, uncomment the line below and comment out the line above:
+# .vscode/*
+# !.vscode/launch.json
+# !.vscode/tasks.json
+
+# JetBrains (CLion, PyCharm)
+.idea/
+cmake-build-*/
+
+# Vim / Emacs / Sublime
+*~
+*.swp
+*.swo
+.DS_Store
+
+# === Documentation generated ===
+docs/_build/
