@@ -1,0 +1,21 @@
+# Игнорируем артефакты сборки
+build/
+install/
+log/
+test_results/
+
+# Игнорируем Git историю (в образе она не нужна)
+.git/
+.github/
+
+# Игнорируем настройки IDE
+.vscode/
+.idea/
+.obsidian/
+
+# Игнорируем документацию и сам Dockerfile
+docs/
+Dockerfile
+docker-compose.yml
+README.md
+LICENCE
