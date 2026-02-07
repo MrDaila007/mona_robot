@@ -6,9 +6,10 @@ from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import Command
 from launch_ros.actions import Node
 
+
 def generate_launch_description():
     pkg_path = get_package_share_directory('mona_description')
-    
+
     # 1. Путь к нашему миру
     world_path = os.path.join(pkg_path, 'worlds', 'mona.world')
 

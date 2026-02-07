@@ -30,4 +30,31 @@ install(
   DESTINATION lib/${PROJECT_NAME}
 )
 
+if(BUILD_TESTING)
+  find_package(ament_lint_auto REQUIRED)
+
+  list(APPEND AMENT_LINT_AUTO_EXCLUDE
+    ament_cmake_uncrustify
+    ament_cmake_copyright
+    ament_cmake_cpplint
+    ament_cmake_flake8
+    ament_copyright
+    ament_cpplint
+    uncrustify
+    cpplint
+  )
+
+  ament_lint_auto_find_test_dependencies()
+
+  # Запуск Flake8 (Python)
+  find_package(ament_cmake_flake8 REQUIRED)
+  ament_flake8(CONFIG_FILE "${CMAKE_CURRENT_SOURCE_DIR}/../../configs/setup.cfg")
+
+  # Запуск Uncrustify (C++)
+  if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/src")
+    find_package(ament_cmake_uncrustify REQUIRED)
+    ament_uncrustify(CONFIG_FILE "${CMAKE_CURRENT_SOURCE_DIR}/../../configs/uncrustify.cfg")
+  endif()
+endif()
+
 ament_package()

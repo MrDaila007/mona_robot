@@ -7,11 +7,12 @@ from launch_ros.events.lifecycle import ChangeState
 from launch_ros.event_handlers import OnStateTransition
 import lifecycle_msgs.msg
 
+
 def generate_launch_description():
     # 1. Объявляем нашу C++ ноду
     safety_node = LifecycleNode(
         package='mona_safety',
-        executable='mona_safety_node', 
+        executable='mona_safety_node',
         name='safety_node',
         namespace='',
     )

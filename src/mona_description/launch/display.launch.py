@@ -1,19 +1,19 @@
 import os
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument
-from launch.substitutions import Command, LaunchConfiguration
+from launch.substitutions import Command
 from launch_ros.actions import Node
+
 
 def generate_launch_description():
     pkg_path = get_package_share_directory('mona_description')
-    
+
     # Путь к xacro файлу
     xacro_file = os.path.join(pkg_path, 'urdf', 'mona.urdf.xacro')
 
     # Обработка xacro: запускаем команду 'xacro' и сохраняем результат в переменную
     robot_description_config = Command(['xacro ', xacro_file])
-    
+
     # Создаем параметр robot_description
     params = {'robot_description': robot_description_config}
 

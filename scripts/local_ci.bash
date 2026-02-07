@@ -15,6 +15,7 @@ NC='\033[0m' # No Color
 
 echo -e "${BLUE}[INFO] Starting Local Continuous Integration sequence...${NC}"
 
+
 # ------------------------------------------------------------------------------
 # 0. Pre-flight Check
 # ------------------------------------------------------------------------------
@@ -25,10 +26,38 @@ if [ ! -d "src" ]; then
     exit 1
 fi
 
+
 # ------------------------------------------------------------------------------
-# 1. Clean Workspace
+# 1. Auto-format Code (Fix style before testing)
 # ------------------------------------------------------------------------------
-echo -e "${YELLOW}[1/3] Cleaning workspace (build, install, log)...${NC}"
+echo -e "${YELLOW}[1/4] Auto-formatting code to match standards...${NC}"
+
+# Исправляем C++ (используем наш общий конфиг)
+if command -v ament_uncrustify &> /dev/null; then
+    ament_uncrustify -c configs/uncrustify.cfg --reformat src/ > /dev/null 2>&1
+    echo -e "${GREEN}[OK] C++ formatted.${NC}"
+else
+    echo -e "${RED}[WARN] ament_uncrustify not found, skipping C++ format.${NC}"
+fi
+
+# Исправляем Python (используем autopep8)
+if command -v autopep8 &> /dev/null; then
+    autopep8 --in-place --recursive --max-line-length 120 src/
+    echo -e "${GREEN}[OK] Python formatted.${NC}"
+else
+    # Если autopep8 не в PATH, попробуем запустить через python3 -m
+    python3 -m autopep8 --in-place --recursive --global-config configs/setup.cfg src/
+    echo -e "${GREEN}[OK] Python formatted (via module).${NC}"
+fi
+
+# Удаляем пробелы в конце строк (trailing whitespace) во всех CMakeLists.txt
+find src -name "CMakeLists.txt" -exec sed -i 's/[[:space:]]*$//' {} +
+
+
+# ------------------------------------------------------------------------------
+# 2. Clean Workspace
+# ------------------------------------------------------------------------------
+echo -e "${YELLOW}[2/4] Cleaning workspace (build, install, log)...${NC}"
 
 rm -rf build/ install/ log/
 
@@ -38,10 +67,11 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
+
 # ------------------------------------------------------------------------------
-# 2. Build Packages
+# 3. Build Packages
 # ------------------------------------------------------------------------------
-echo -e "${YELLOW}[2/3] Building packages...${NC}"
+echo -e "${YELLOW}[3/4] Building packages...${NC}"
 
 # Run colcon build
 colcon build --cmake-clean-cache --symlink-install
@@ -52,10 +82,11 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
+
 # ------------------------------------------------------------------------------
-# 3. Run Tests
+# 4. Run Tests
 # ------------------------------------------------------------------------------
-echo -e "${YELLOW}[3/3] Running tests...${NC}"
+echo -e "${YELLOW}[4/4] Running tests...${NC}"
 
 # Source the newly built workspace to ensure tests see the environment
 if [ -f "install/setup.bash" ]; then
@@ -75,8 +106,9 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
+
 # ------------------------------------------------------------------------------
-# 4. Verify Results
+# 5. Verify Results
 # ------------------------------------------------------------------------------
 echo -e "${YELLOW}Verifying test results...${NC}"
 
@@ -87,10 +119,18 @@ if [ $? -eq 0 ]; then
     echo -e "${GREEN}=================================================${NC}"
     echo -e "${GREEN}[SUCCESS] All checks passed. Build and Tests are OK.${NC}"
     echo -e "${GREEN}=================================================${NC}"
+    
+    echo -e "\n${BLUE}Recommended next steps:${NC}"
+    echo -e "  1. Create a new feature branch: ${YELLOW}git checkout -b <branch-name>${NC}"
+    echo -e "  2. Commit your changes:         ${YELLOW}git commit -am \"your message\"${NC}"
+    echo -e "  3. Push to origin:              ${YELLOW}git push origin <branch-name>${NC}"
+    echo -e "  4. Open a Pull Request on GitHub."
     exit 0
 else
     echo -e "${RED}=================================================${NC}"
     echo -e "${RED}[FAILURE] Tests failed. See details above.${NC}"
     echo -e "${RED}=================================================${NC}"
+    
+    echo -e "\n${YELLOW}[!] Please fix the linting or logic errors before committing.${NC}"
     exit 1
 fi
