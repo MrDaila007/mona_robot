@@ -36,6 +36,7 @@ WORKDIR /home/$USERNAME/mona_ws
 # 5. Копируем код с правильными правами!
 # --chown гарантирует, что владельцем файлов станет mona_dev, а не root
 COPY --chown=$USERNAME:$USER_GID src src
+COPY --chown=$USERNAME:$USER_GID configs configs
 
 # 6. Авто-source
 RUN echo "source /opt/ros/humble/setup.bash" >> /home/$USERNAME/.bashrc && \
