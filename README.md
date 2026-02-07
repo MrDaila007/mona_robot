@@ -1,59 +1,28 @@
-# MONA Robot: Warehouse AMR
+# MONA: Modular Open Navigating AMR
 
-[![CI](https://github.com/vladubase/mona_robot/actions/workflows/ci.yml/badge.svg)](https://github.com/vladubase/mona_robot/actions/workflows/ci.yml)
+![CI Status](https://github.com/vladubase/mona_robot/actions/workflows/ci.yml/badge.svg)
 
-**MONA** — это проект автономного мобильного робота (AMR) для складской логистики. Робот оснащен колесами Илона (Mecanum wheels) для всенаправленного движения и рассчитан на перевозку грузов до 400 кг.
+**MONA** (Modular Open Navigating AMR) - это проект автономного мобильного робота для складской логистики. Система построена на базе ROS 2 Humble и использует контейнеризированную среду разработки для гарантии воспроизводимости кода.
+## Основная цель проекта
+Cоздание масштабируемой, безопасной и открытой архитектуры для управления флотом роботов, совместимой с индустриальными стандартами.
+## Документация
+Вся техническая документация находится в папке `docs/`:
+1. **[Настройка окружения](docs/01_SETUP.md)** - Развертывание Docker-контейнера.
+2. **[Руководство C++ разработчика](docs/02_CPP_GUIDE.md)** - Создание пакетов, нод и шаблоны кода.
+3. **[Архитектура Lifecycle](docs/03_LIFECYCLE.md)** - Философия управляемых нод (Managed Nodes).
+4. **[Рабочий процесс (Workflow)](docs/04_WORKFLOW.md)** - Сборка, очистка кэша и тесты.
+5. **[Правила участия (Contributing)](docs/CONTRIBUTING.md)** - Git Flow, стандарты качества (ISO/VDA) и инструкции по Git.
+## Быстрый старт
+Проект запускается полностью в Docker. Установка ROS 2 на хост-машину не требуется.
 
-Проект разрабатывается с использованием **ROS 2 Humble**, **Docker** и современных практик **CI/CD**.
-
-## 🚀 Ключевые особенности
-
-* **Holonomic Drive:** Кинематическая модель для Mecanum-колес.
-* **Safety Lifecycle Node (C++):** Реализация управляемого узла (Managed Node) для обеспечения безопасности. Гарантирует остановку робота при деактивации системы.
-* **Industrial Simulation:** Среда Gazebo Classic с моделью склада.
-* **DevOps Ready:**
-    * 🐳 Полностью докеризированное окружение разработки.
-    * 🔄 CI/CD pipeline на базе GitHub Actions (сборка и тесты при каждом PR).
-
-## 🛠️ Технологический стек
-
-* **Framework:** ROS 2 Humble Hawksbill
-* **Языки:** C++ 17, Python 3.10
-* **Симуляция:** Gazebo Classic, RViz 2
-* **Инфраструктура:** Docker, Docker Compose, GitHub Actions
-
-## 💻 Запуск проекта
-
-Для запуска не требуется устанавливать ROS 2 на хост-машину. Достаточно Docker.
-
-### 1. Клонирование и запуск контейнера
 ```bash
+# 1. Клонирование репозитория
 git clone [https://github.com/vladubase/mona_robot.git](https://github.com/vladubase/mona_robot.git)
 cd mona_robot
-docker compose up -d
-```
 
-### 2. Подключение к контейнеру
-```Bash
+# 2. Запуск контейнера разработки
+docker compose up -d
+
+# 3. Вход в терминал контейнера
 docker exec -it mona_dev bash
 ```
-
-### 3. Сборка и запуск симуляции
-Внутри контейнера:
-
-```Bash
-colcon build
-source install/setup.bash
-ros2 launch mona_description sim_viz.launch.py
-```
-
-## Roadmap
-[x] Базовая симуляция (URDF, Gazebo)
-[x] Docker Environment
-[x] Safety Node (Lifecycle, C++)
-[x] CI/CD Pipeline
-[ ] Навигация (Nav2)
-[ ] Интеграция VDA5050 (MQTT Bridge)
-[ ] Покрытие Unit-тестами
-
-Разработано в рамках демонстрационного проекта по современной робототехнике.
