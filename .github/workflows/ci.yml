@@ -40,4 +40,4 @@ jobs:
             -v ${{ github.workspace }}/src:/home/mona_dev/mona_ws/src \
             -v ${{ github.workspace }}/scripts:/home/mona_dev/mona_ws/scripts \
             mona_ci:latest \
-            /bin/bash -c "cd /home/mona_dev/mona_ws && ./src/scripts/local_ci.bash"
+            /bin/bash -c "cd /home/mona_dev/mona_ws && ./scripts/local_ci.bash"
