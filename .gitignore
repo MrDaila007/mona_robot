@@ -24,6 +24,9 @@ venv/
 
 # === Editors & IDEs ===
 
+# FreeCAD temp
+*.FCBak
+
 # Obsidian
 .obsidian/
 .trash/
