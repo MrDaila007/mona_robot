@@ -38,7 +38,8 @@ def generate_launch_description():
         package='gazebo_ros',
         executable='spawn_entity.py',
         arguments=['-topic', 'robot_description',
-                   '-entity', 'mona_robot'],
+                   '-entity', 'mona_robot',
+                   '-timeout', '30'],
         output='screen'
     )
 
