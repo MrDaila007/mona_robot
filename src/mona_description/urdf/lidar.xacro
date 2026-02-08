@@ -1,11 +1,11 @@
 <?xml version="1.0"?>
 <robot xmlns:xacro="http://www.ros.org/wiki/xacro">
 
-    <xacro:macro name="lidar_sensor" params="name parent *origin">
+    <xacro:property name="lidar_radius" value="0.055"/>
+    <xacro:property name="lidar_height" value="0.080"/>
+    <xacro:property name="lidar_weight" value="0.070"/>
 
-        <xacro:property name="lidar_radius" value="0.055"/>
-        <xacro:property name="lidar_height" value="0.080"/>
-        <xacro:property name="lidar_weight" value="0.070"/>
+    <xacro:macro name="lidar_sensor" params="name parent *origin">
 
         <joint name="${name}_joint" type="fixed">
             <xacro:insert_block name="origin" />
@@ -37,10 +37,10 @@
                 <ray>
                     <scan>
                         <horizontal>
-                            <samples>100</samples>
+                            <samples>300</samples>
                             <resolution>1</resolution>
-                            <min_angle>${-pi/3.6}</min_angle>
-                            <max_angle>${pi/3.6}</max_angle>
+                            <min_angle>${-pi/2.4}</min_angle>
+                            <max_angle>${pi/2.4}</max_angle>
                         </horizontal>
                     </scan>
                     <range>
