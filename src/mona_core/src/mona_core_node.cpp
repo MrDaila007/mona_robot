@@ -1,28 +1,32 @@
+// Copyright 2026 vladubase
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 #include <rclcpp/rclcpp.hpp>
 
-// Наследуемся от rclcpp::Node — это стандарт для C++ нод
 class MonaCoreNode : public rclcpp::Node {
 public:
-    // Конструктор: задаем имя ноды ("mona_core_node")
     MonaCoreNode() : Node("mona_core_node") {
-        // RCLCPP_INFO — это аналог printf/cout, но с метками времени и уровнями логирования
         RCLCPP_INFO(this->get_logger(), "Hello, MONA! C++ Node is running.");
     }
 };
 
 int main(int argc, char ** argv) {
-    // 1. Инициализация ROS 2 (парсинг аргументов)
     rclcpp::init(argc, argv);
 
-    // 2. Создание ноды и передача её в "исполнитель" (spin)
-    // make_shared создает умный указатель (smart pointer)
     auto node = std::make_shared<MonaCoreNode>();
-
-    // spin запускает бесконечный цикл обработки событий (таймеры, топики)
-    // Пока событий нет, нода просто "висит" и ждет (Hello выведется в конструкторе)
     rclcpp::spin(node);
 
-    // 3. Корректное завершение
     rclcpp::shutdown();
     return 0;
 }

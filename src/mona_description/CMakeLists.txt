@@ -1,3 +1,7 @@
+# Copyright 2026 vladubase
+#
+# Licensed under the MIT License.
+
 cmake_minimum_required(VERSION 3.8)
 project(mona_description)
 
@@ -19,10 +23,8 @@ if(BUILD_TESTING)
 
   list(APPEND AMENT_LINT_AUTO_EXCLUDE
     ament_cmake_uncrustify
-    ament_cmake_copyright
     ament_cmake_cpplint
     ament_cmake_flake8
-    ament_copyright
     ament_cpplint
     uncrustify
     cpplint

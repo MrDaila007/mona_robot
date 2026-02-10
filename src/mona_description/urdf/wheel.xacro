@@ -1,17 +1,33 @@
 <?xml version="1.0"?>
-<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro"
+       xmlns:ignition="http://gazebosim.org/schema">
+
+<!-- Copyright 2026 vladubase                                                   -->
+<!--                                                                            -->
+<!-- Licensed under the Apache License, Version 2.0 (the "License");            -->
+<!-- you may not use this file except in compliance with the License.           -->
+<!-- You may obtain a copy of the License at                                    -->
+<!--                                                                            -->
+<!--     http://www.apache.org/licenses/LICENSE-2.0                             -->
+<!--                                                                            -->
+<!-- Unless required by applicable law or agreed to in writing, software        -->
+<!-- distributed under the License is distributed on an "AS IS" BASIS,          -->
+<!-- WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.   -->
+<!-- See the License for the specific language governing permissions and        -->
+<!-- limitations under the License.                                             -->
 
     <xacro:property name="wheel_radius" value="0.127"/>
     <xacro:property name="wheel_width"  value="0.132"/>
-    <xacro:property name="wheel_weight" value="15.0"/>
+    <xacro:property name="wheel_weight" value="10.0"/>
 
-    <xacro:macro name="mecanum_wheel" params="name x y flip_visual parent height_offset">
+    <xacro:macro name="mecanum_wheel" params="name x y sx sy parent height_offset fdir">
         
         <link name="${name}_link">
             <visual>
                 <origin xyz="0 0 0" rpy="${pi/2} 0 0"/> 
                 <geometry>
-                    <mesh filename="package://mona_description/meshes/wheels/mecanum_wheel.stl" scale="0.001 0.001 0.001"/>
+                    <mesh filename="package://mona_description/meshes/wheels/mecanum_wheel.stl"
+                          scale="${0.001 * sx} ${0.001 * sy} 0.001"/>
                 </geometry>
                 <material name="black">
                     <color rgba="0.1 0.1 0.1 1.0"/>
@@ -21,7 +37,7 @@
             <collision>
                 <origin xyz="0 0 0" rpy="${pi/2} 0 0"/>
                 <geometry>
-                    <cylinder radius="${wheel_radius}" length="${wheel_width}"/>
+                    <sphere radius="${wheel_radius}"/>
                 </geometry>
             </collision>
             
@@ -39,13 +55,42 @@
             <child link="${name}_link"/>
             <origin xyz="${x} ${y} ${height_offset}" rpy="0 0 0"/>
             <axis xyz="0 1 0"/>
+
+            <!-- Damping (Н·м·с/рад): создаёт сопротивление, пропорциональное скорости.
+            Это предотвратит «бесконечное» вращение колес по инерции.-->
+            <!-- Friction (Н·м): минимальное усилие, нужное для начала вращения.
+            Помогает робоу удерживаться на месте и не «дрейфовать» от вибраций.-->
+            <limit effort="1000.0" velocity="20.0"/>
+            <dynamics damping="1.5" friction="1.0"/>
         </joint>
 
         <gazebo reference="${name}_link">
-            <material>Gazebo/Grey</material>
-            <mu1>0.8</mu1> 
-            <mu2>0.8</mu2>
+            <visual>
+                <material>
+                    <ambient>0.1 0.1 0.1 1.0</ambient>
+                    <diffuse>0.1 0.1 0.1 1.0</diffuse>
+                    <specular>0.5 0.5 0.5 1.0</specular>
+                </material>
+            </visual>
+            <collision>
+                <surface>
+                    <friction>
+                        <ode>
+                            <fdir1 ignition:expressed_in="base_footprint">${fdir}</fdir1>   <!-- Ось роликов        -->
+                            <mu>0.05</mu>   <!-- Коэффициент трения вдоль оси fdir  (должен быть 0, чтобы катилось).-->
+                            <mu2>1.0</mu2>  <!-- Коэффициент трения поперёк оси fdir(должен быть 1, чтобы катилось).-->
+                        </ode>
+                    </friction>
+                    <contact>
+                        <ode>
+                            <kp>1e8</kp> 
+                            <kd>10.0</kd>
+                            <min_depth>0.001</min_depth>
+                        </ode>
+                    </contact>
+                </surface>
+            </collision>
         </gazebo>
+    
     </xacro:macro>
-
 </robot>
