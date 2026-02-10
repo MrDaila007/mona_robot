@@ -9,13 +9,10 @@ ARG USER_GID=$USER_UID
 
 # 2. Установка пакетов (System + Dev + Sim + Audio)
 RUN apt-get update && apt-get install -y \
-    build-essential \
-    cmake \
+    build-essential cmake python3-colcon-common-extensions \
     git \
-    python3-colcon-common-extensions \
-    ros-humble-xacro \
-    ros-humble-rviz2 \
-    ros-humble-ros-gz \
+    ros-humble-xacro ros-humble-rviz2 ros-humble-ros-gz \
+    ros-humble-laser-geometry ros-humble-tf2-sensor-msgs \
     sudo \
     python3-pip \
     && rm -rf /var/lib/apt/lists/* \

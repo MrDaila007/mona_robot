@@ -33,7 +33,6 @@ def generate_launch_description():
     rviz_config_file = os.path.join(pkg_mona_description, 'rviz', 'mona.rviz')
 
     # Настройка окружения
-    # Чтобы Gazebo видел ваши меши и миры
     resource_env = SetEnvironmentVariable(
         name='IGN_GAZEBO_RESOURCE_PATH',
         value=[os.path.dirname(pkg_mona_description), ':', pkg_mona_description]
@@ -46,7 +45,7 @@ def generate_launch_description():
     # НОДЫ И ЗАПУСК
     use_sim_time = LaunchConfiguration('use_sim_time', default='true')
 
-    # 1. Robot State Publisher (публикует TF на основе URDF и joint_states)
+    # 1. Robot State Publisher
     node_robot_state_publisher = Node(
         package='robot_state_publisher',
         executable='robot_state_publisher',
@@ -62,14 +61,14 @@ def generate_launch_description():
         launch_arguments={'gz_args': ['-r ', world_file]}.items(),
     )
 
-    # 3. Спавн робота внутри симуляции
+    # 3. Спавн робота
     spawn_entity = Node(
         package='ros_gz_sim',
         executable='create',
         arguments=[
             '-topic', 'robot_description',
             '-name', 'mona_robot',
-            '-z', '0.5'
+            '-z', '0.01'
         ],
         output='screen'
     )
@@ -84,10 +83,10 @@ def generate_launch_description():
             '/tf@tf2_msgs/msg/TFMessage@ignition.msgs.Pose_V',
             '/joint_states@sensor_msgs/msg/JointState@ignition.msgs.Model',
             '/clock@rosgraph_msgs/msg/Clock@ignition.msgs.Clock',
-            '/lidar_front/scan@sensor_msgs/msg/LaserScan@ignition.msgs.LaserScan',
-            '/lidar_back/scan@sensor_msgs/msg/LaserScan@ignition.msgs.LaserScan',
-            '/lidar_left/scan@sensor_msgs/msg/LaserScan@ignition.msgs.LaserScan',
-            '/lidar_right/scan@sensor_msgs/msg/LaserScan@ignition.msgs.LaserScan',
+            '/lidar_front/scan@sensor_msgs/msg/LaserScan[ignition.msgs.LaserScan',
+            '/lidar_back/scan@sensor_msgs/msg/LaserScan[ignition.msgs.LaserScan',
+            '/lidar_left/scan@sensor_msgs/msg/LaserScan[ignition.msgs.LaserScan',
+            '/lidar_right/scan@sensor_msgs/msg/LaserScan[ignition.msgs.LaserScan',
             '/imu/data@sensor_msgs/msg/Imu@ignition.msgs.IMU'
         ],
         parameters=[{
@@ -95,6 +94,15 @@ def generate_launch_description():
             'qos_overrides./imu/data.subscriber.reliability': 'best_effort'
         }],
         output='screen'
+    )
+
+    # 5. Нода объединения лидаров
+    lidar_merger = Node(
+        package='mona_perception',
+        executable='mona_perception_node',
+        name='mona_lidar_merger',
+        output='screen',
+        parameters=[{'use_sim_time': use_sim_time}]
     )
 
     # 5. Rviz2
@@ -113,5 +121,6 @@ def generate_launch_description():
         gz_sim,
         spawn_entity,
         bridge,
+        lidar_merger,
         node_rviz
     ])
