@@ -1,6 +1,16 @@
 # Copyright 2026 vladubase
 #
-# Licensed under the MIT License.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 
 cmake_minimum_required(VERSION 3.8)
 project(mona_safety)
@@ -35,28 +45,33 @@ install(
 )
 
 if(BUILD_TESTING)
-  find_package(ament_lint_auto REQUIRED)
+  # 1. Используем ручной поиск конкретных пакетов (вместо ament_lint_auto)
+  find_package(ament_cmake_cppcheck   REQUIRED)
+  find_package(ament_cmake_cpplint    REQUIRED)
+  find_package(ament_cmake_uncrustify REQUIRED)
+  find_package(ament_cmake_xmllint    REQUIRED)
+  find_package(ament_cmake_lint_cmake REQUIRED)
+  find_package(ament_cmake_copyright  REQUIRED)
+  find_package(ament_cmake_flake8     REQUIRED)
 
-  list(APPEND AMENT_LINT_AUTO_EXCLUDE
-    ament_cmake_uncrustify
-    ament_cmake_cpplint
-    ament_cmake_flake8
-    ament_cpplint
-    uncrustify
-    cpplint
-  )
+  # 2. Запускаем каждый линтер вручную
+  # C++ статический анализ и стиль
+  ament_cppcheck()
+  ament_cpplint()
+  # uncrustify с кастомным конфигом
+  ament_uncrustify(CONFIG_FILE "${CMAKE_CURRENT_SOURCE_DIR}/../../configs/uncrustify.cfg")
 
-  ament_lint_auto_find_test_dependencies()
+  # Проверка лицензий (Copyright)
+  ament_copyright()
 
-  # Запуск Flake8 (Python)
-  find_package(ament_cmake_flake8 REQUIRED)
+  # Python линтер с кастомным конфигом
   ament_flake8(CONFIG_FILE "${CMAKE_CURRENT_SOURCE_DIR}/../../configs/setup.cfg")
 
-  # Запуск Uncrustify (C++)
-  if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/src")
-    find_package(ament_cmake_uncrustify REQUIRED)
-    ament_uncrustify(CONFIG_FILE "${CMAKE_CURRENT_SOURCE_DIR}/../../configs/uncrustify.cfg")
-  endif()
+  # XML (package, launch, xacro)
+  ament_xmllint()
+
+  # CMake стиль
+  ament_lint_cmake()
 endif()
 
 ament_package()

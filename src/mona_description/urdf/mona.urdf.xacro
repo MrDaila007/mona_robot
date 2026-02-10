@@ -1,192 +1,175 @@
-<?xml version="1.0"?>
-<robot xmlns:xacro="http://www.ros.org/wiki/xacro" 
-       xmlns:ignition="http://gazebosim.org/schema" 
+<?xml version="1.0" ?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro"
+       xmlns:ignition="http://gazebosim.org/schema"
        name="mona">
 
-<!-- Copyright 2026 vladubase                                                   -->
-<!--                                                                            -->
-<!-- Licensed under the Apache License, Version 2.0 (the "License");            -->
-<!-- you may not use this file except in compliance with the License.           -->
-<!-- You may obtain a copy of the License at                                    -->
-<!--                                                                            -->
-<!--     http://www.apache.org/licenses/LICENSE-2.0                             -->
-<!--                                                                            -->
-<!-- Unless required by applicable law or agreed to in writing, software        -->
-<!-- distributed under the License is distributed on an "AS IS" BASIS,          -->
-<!-- WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.   -->
-<!-- See the License for the specific language governing permissions and        -->
-<!-- limitations under the License.                                             -->
+  <!-- Copyright 2026 vladubase                                                 -->
+  <!--                                                                          -->
+  <!-- Licensed under the Apache License, Version 2.0 (the "License");          -->
+  <!-- you may not use this file except in compliance with the License.         -->
+  <!-- You may obtain a copy of the License at                                  -->
+  <!--                                                                          -->
+  <!-- http://www.apache.org/licenses/LICENSE-2.0                               -->
+  <!--                                                                          -->
+  <!-- Unless required by applicable law or agreed to in writing, software      -->
+  <!-- distributed under the License is distributed on an "AS IS" BASIS,        -->
+  <!-- WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. -->
+  <!-- See the License for the specific language governing permissions and      -->
+  <!-- limitations under the License.                                           -->
 
-    <xacro:include filename="wheel.xacro"/>
-    <xacro:include filename="lidar.xacro"/>
-    <xacro:include filename="imu.xacro"/>
+  <xacro:include filename="wheel.xacro"/>
+  <xacro:include filename="lidar.xacro"/>
+  <xacro:include filename="imu.xacro"/>
 
-    <material name="orange">
-        <color rgba="1.0 0.5 0.0 1.0"/>
-    </material>
-    <material name="white">
-        <color rgba="1.0 1.0 1.0 1.0"/>
-    </material>
+  <material name="orange">
+    <color rgba="1.0 0.5 0.0 1.0"/>
+  </material>
+  <material name="white">
+    <color rgba="1.0 1.0 1.0 1.0"/>
+  </material>
 
-    <xacro:property name="base_length"  value="1.25"/>
-    <xacro:property name="base_width"   value="0.80"/>
-    <xacro:property name="base_height"  value="0.30"/>
-    <xacro:property name="base_weight"  value="200.0"/>
-    <xacro:property name="robot_road_clearance" value="0.02"/>
+  <xacro:property name="base_length"    value="1.25"/>
+  <xacro:property name="base_width"     value="0.80"/>
+  <xacro:property name="base_height"    value="0.30"/>
+  <xacro:property name="base_weight"    value="200.0"/>
 
-    <xacro:property name="wheel_base_x" value="0.8"/>
-    <xacro:property name="wheel_base_y" value="${base_width - wheel_width}"/>
-    <xacro:property name="wheel_base_z" value="${-base_height/2 - robot_road_clearance + wheel_radius}"/>
+  <xacro:property name="road_clearance" value="0.02"/>
 
-    <xacro:property name="lidar_offset_x" value="${base_length/2 - 0.06}"/>
-    <xacro:property name="lidar_offset_y" value="${base_width/2  - 0.06}"/>
-    <xacro:property name="lidar_offset_z" value="${-lidar_height/2}"/>
+  <xacro:property name="wheel_base_x"   value="0.8"/>
+  <xacro:property name="wheel_base_y"   value="${base_width - wheel_width}"/>
+  <xacro:property name="wheel_base_z"   value="${-base_height/2 - road_clearance + wheel_radius}"/>
 
-    <xacro:property name="robot_spawn_x" value="0.0"/>
-    <xacro:property name="robot_spawn_y" value="0.0"/>
-    <xacro:property name="robot_spawn_z" value="${(robot_road_clearance) + (base_height/2)}"/>
+  <xacro:property name="lidar_offset_x" value="${base_length/2 - 0.06}"/>
+  <xacro:property name="lidar_offset_y" value="${base_width/2 - 0.06}"/>
+  <xacro:property name="lidar_offset_z" value="${-lidar_height/2}"/>
 
-    <!-- BASE FOOTPRINT -->
-    <link name="base_footprint"/>
-    <joint name="base_joint" type="fixed">
-        <parent link="base_footprint"/>
-        <child link="base_link"/>
-        <origin xyz="${robot_spawn_x} ${robot_spawn_y} ${robot_spawn_z}" rpy="0 0 0"/>
-    </joint>
+  <xacro:property name="robot_spawn_x"  value="0.0"/>
+  <xacro:property name="robot_spawn_y"  value="0.0"/>
+  <xacro:property name="robot_spawn_z"  value="${(road_clearance) + (base_height/2)}"/>
 
-    <!-- ROBOT BASE -->
-    <link name="base_link">
-        <visual>
-            <origin xyz="0 0 0" rpy="0 0 0"/>
-            <geometry>
-                <mesh filename="package://mona_description/meshes/base.stl" scale="0.001 0.001 0.001"/>
-            </geometry>
-            <material name="orange"/>
-        </visual>
-        <collision>
-            <origin xyz="0 0 0" rpy="0 0 0"/>
-            <geometry>
-                <mesh filename="package://mona_description/meshes/base.stl" scale="0.001 0.001 0.001"/>
-            </geometry>
-        </collision>
-        <inertial>
-            <mass value="${base_weight}"/>
-            <inertia ixx="${(1.0/12.0) * base_weight * (base_width * base_width + base_height*base_height)}" ixy="0.0" ixz="0.0"
-                     iyy="${(1.0/12.0) * base_weight * (base_length*base_length + base_height*base_height)}" iyz="0.0"
-                     izz="${(1.0/12.0) * base_weight * (base_length*base_length + base_width*base_width)}"/>
-        </inertial>
-    </link>
-    <gazebo reference="base_link">
-        <visual>
-            <material>
-                <ambient>1.0 0.25 0.0 1.0</ambient>
-                <diffuse>1.0 0.25 0.0 1.0</diffuse>
-                <specular>0.2 0.2 0.2 1.0</specular>
-            </material>
-        </visual>
-    </gazebo>
+  <!-- BASE FOOTPRINT -->
+  <link name="base_footprint"/>
+  <joint name="base_joint" type="fixed">
+    <parent link="base_footprint"/>
+    <child link="base_link"/>
+    <origin xyz="${robot_spawn_x} ${robot_spawn_y} ${robot_spawn_z}" rpy="0 0 0"/>
+  </joint>
 
-    <!-- WHEELS -->
-    <xacro:mecanum_wheel name="wheel_front_left"  x="${wheel_base_x/2}"  y="${wheel_base_y/2}"  sx="1"  sy="1"  parent="base_link" height_offset="${wheel_base_z}" fdir="1 1 0"/>
-    <xacro:mecanum_wheel name="wheel_front_right" x="${wheel_base_x/2}"  y="-${wheel_base_y/2}" sx="1"  sy="-1" parent="base_link" height_offset="${wheel_base_z}" fdir="1 -1 0"/>
-    
-    <xacro:mecanum_wheel name="wheel_back_left"   x="-${wheel_base_x/2}" y="${wheel_base_y/2}"  sx="-1" sy="1"  parent="base_link" height_offset="${wheel_base_z}" fdir="1 -1 0"/>
-    <xacro:mecanum_wheel name="wheel_back_right"  x="-${wheel_base_x/2}" y="-${wheel_base_y/2}" sx="-1" sy="-1" parent="base_link" height_offset="${wheel_base_z}" fdir="1 1 0"/>
+  <!-- ROBOT BASE -->
+  <link name="base_link">
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <mesh filename="package://mona_description/meshes/base.stl" scale="0.001 0.001 0.001"/>
+      </geometry>
+      <material name="orange"/>
+    </visual>
 
-    <!-- LIDARS -->
-    <xacro:lidar_sensor name="lidar_front" parent="base_link">
-        <origin xyz="${lidar_offset_x} 0 ${lidar_offset_z}" rpy="0 0 0"/>
-    </xacro:lidar_sensor>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <mesh filename="package://mona_description/meshes/base.stl" scale="0.001 0.001 0.001"/>
+      </geometry>
+    </collision>
 
-    <xacro:lidar_sensor name="lidar_back" parent="base_link">
-        <origin xyz="-${lidar_offset_x} 0 ${lidar_offset_z}" rpy="0 0 ${pi}"/>
-    </xacro:lidar_sensor>
+    <inertial>
+      <mass value="${base_weight}"/>
+      <inertia ixx="${(1.0/12.0) * base_weight * (base_width * base_width + base_height*base_height)}" ixy="0.0" ixz="0.0" iyy="${(1.0/12.0) * base_weight * (base_length*base_length + base_height*base_height)}" iyz="0.0" izz="${(1.0/12.0) * base_weight * (base_length*base_length + base_width*base_width)}"/>
+    </inertial>
+  </link>
 
-    <xacro:lidar_sensor name="lidar_left" parent="base_link">
-        <origin xyz="0 ${lidar_offset_y} ${lidar_offset_z}" rpy="0 0 ${pi/2}"/>
-    </xacro:lidar_sensor>
+  <gazebo reference="base_link">
+    <visual>
+      <material>
+        <ambient>1.0 0.25 0.0 1.0</ambient>
+        <diffuse>1.0 0.25 0.0 1.0</diffuse>
+        <specular>0.2 0.2 0.2 1.0</specular>
+      </material>
+    </visual>
+  </gazebo>
 
-    <xacro:lidar_sensor name="lidar_right" parent="base_link">
-        <origin xyz="0 -${lidar_offset_y} ${lidar_offset_z}" rpy="0 0 -${pi/2}"/>
-    </xacro:lidar_sensor>
+  <!-- WHEELS -->
+  <xacro:mecanum_wheel name="wheel_front_left"  x="${wheel_base_x/2}"  y="${wheel_base_y/2}"  sx="1"  sy="1"  parent="base_link" height_offset="${wheel_base_z}" fdir="1 1 0"/>
+  <xacro:mecanum_wheel name="wheel_front_right" x="${wheel_base_x/2}"  y="-${wheel_base_y/2}" sx="1"  sy="-1" parent="base_link" height_offset="${wheel_base_z}" fdir="1 -1 0"/>
+  <xacro:mecanum_wheel name="wheel_back_left"   x="-${wheel_base_x/2}" y="${wheel_base_y/2}"  sx="-1" sy="1"  parent="base_link" height_offset="${wheel_base_z}" fdir="1 -1 0"/>
+  <xacro:mecanum_wheel name="wheel_back_right"  x="-${wheel_base_x/2}" y="-${wheel_base_y/2}" sx="-1" sy="-1" parent="base_link" height_offset="${wheel_base_z}" fdir="1 1 0"/>
+  
+  <!-- LIDARS -->
+  <xacro:lidar_sensor name="lidar_front" parent="base_link"> <origin xyz="${lidar_offset_x} 0 ${lidar_offset_z}"  rpy="0 0 0"/> </xacro:lidar_sensor>
+  <xacro:lidar_sensor name="lidar_back"  parent="base_link"> <origin xyz="-${lidar_offset_x} 0 ${lidar_offset_z}" rpy="0 0 ${pi}"/> </xacro:lidar_sensor>
+  <xacro:lidar_sensor name="lidar_left"  parent="base_link"> <origin xyz="0 ${lidar_offset_y} ${lidar_offset_z}"  rpy="0 0 ${pi/2}"/> </xacro:lidar_sensor>
+  <xacro:lidar_sensor name="lidar_right" parent="base_link"> <origin xyz="0 -${lidar_offset_y} ${lidar_offset_z}" rpy="0 0 -${pi/2}"/> </xacro:lidar_sensor>
+  
+  <!-- IMU -->
+  <xacro:imu_sensor name="imu" parent="base_link">
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+  </xacro:imu_sensor>
+  
+  <!-- LED -->
+  <link name="led_strip_link">
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <mesh filename="package://mona_description/meshes/led.stl" scale="0.001 0.001 0.001"/>
+      </geometry>
+      <material name="white">
+        <color rgba="1.0 1.0 1.0 0.8"/>
+      </material>
+    </visual>
+  </link>
 
-    <!-- IMU -->
-    <xacro:imu_sensor name="imu" parent="base_link">
-        <origin xyz="0 0 0" rpy="0 0 0"/>
-    </xacro:imu_sensor>
+  <joint name="led_strip_joint" type="fixed">
+    <parent link="base_link"/>
+    <child link="led_strip_link"/>
+    <origin xyz="0 0 ${base_height/2 - 0.025}" rpy="0 0 0"/>
+  </joint>
 
-    <!-- LED -->
-    <link name="led_strip_link">
-        <visual>
-            <origin xyz="0 0 0" rpy="0 0 0"/>
-            <geometry>
-                <mesh filename="package://mona_description/meshes/led.stl" scale="0.001 0.001 0.001"/>
-            </geometry>
-            <material name="white">
-                <color rgba="1.0 1.0 1.0 0.8"/>
-            </material>
-        </visual>
-    </link>
-    <joint name="led_strip_joint" type="fixed">
-        <parent link="base_link"/>
-        <child link="led_strip_link"/>
-        <origin xyz="0 0 ${base_height/2 - 0.025}" rpy="0 0 0"/>
-    </joint>
-    <gazebo reference="led_strip_link">
-        <visual>
-            <material>
-                <ambient>1 1 1 1</ambient>
-                <diffuse>1 1 1 1</diffuse>
-                <specular>1 1 1 1</specular>
-                <emissive>1.0 1.0 1.0 1.0</emissive>
-            </material>
-        </visual>
-    </gazebo>
+  <gazebo reference="led_strip_link">
+    <visual>
+      <material>
+        <ambient>1 1 1 1</ambient>
+        <diffuse>1 1 1 1</diffuse>
+        <specular>1 1 1 1</specular>
+        <emissive>1.0 1.0 1.0 1.0</emissive>
+      </material>
+    </visual>
+  </gazebo>
+  
+  <!-- PLUGIN CONNECTIONS -->
+  <gazebo>
+    <!-- TF -->
+    <plugin filename="libignition-gazebo-joint-state-publisher-system.so" name="ignition::gazebo::systems::JointStatePublisher">
+      <topic>joint_states</topic>
+    </plugin>
 
-    <!-- PLUGIN CONNECTIONS -->
-    <gazebo>
-        <!-- TF -->
-        <plugin filename="libignition-gazebo-joint-state-publisher-system.so"
-                name="ignition::gazebo::systems::JointStatePublisher">
-            <topic>joint_states</topic>
-        </plugin>
+    <!-- Mecanum Wheels -->
+    <plugin filename="libignition-gazebo-mecanum-drive-system.so" name="ignition::gazebo::systems::MecanumDrive">
+      <front_left_joint>wheel_front_left_joint</front_left_joint>
+      <front_right_joint>wheel_front_right_joint</front_right_joint>
+      <back_left_joint>wheel_back_left_joint</back_left_joint>
+      <back_right_joint>wheel_back_right_joint</back_right_joint>
 
-        <!-- Mecanum Wheels -->
-        <plugin filename="libignition-gazebo-mecanum-drive-system.so"
-                name="ignition::gazebo::systems::MecanumDrive">
-            
-            <front_left_joint>wheel_front_left_joint</front_left_joint>
-            <front_right_joint>wheel_front_right_joint</front_right_joint>
+      <wheel_separation>${wheel_base_y}</wheel_separation>
+      <wheelbase>${wheel_base_x}</wheelbase>
+      <wheel_radius>${wheel_radius}</wheel_radius>
 
-            <back_left_joint>wheel_back_left_joint</back_left_joint>
-            <back_right_joint>wheel_back_right_joint</back_right_joint>
+      <min_acceleration>-15.0</min_acceleration>
+      <max_acceleration>15.0</max_acceleration>
 
-            <wheel_separation>${wheel_base_y}</wheel_separation>
-            <wheelbase>${wheel_base_x}</wheelbase>
-            <wheel_radius>${wheel_radius}</wheel_radius>
+      <topic>/cmd_vel</topic>
+      <odom_topic>/odom</odom_topic>
+      <tf_topic>/tf</tf_topic>
+      <frame_id>odom</frame_id>
+      <child_frame_id>base_footprint</child_frame_id>
+      <odom_publish_frequency>50</odom_publish_frequency>
+    </plugin>
 
-            <min_acceleration>-15.0</min_acceleration>
-            <max_acceleration>15.0</max_acceleration>
+    <!-- Sensor: IMU -->
+    <plugin filename="libignition-gazebo-imu-system.so" name="ignition::gazebo::systems::Imu"/>
 
-            <topic>/cmd_vel</topic>
-            <odom_topic>/odom</odom_topic>
-            <tf_topic>/tf</tf_topic>
-            <frame_id>odom</frame_id>
-            <child_frame_id>base_footprint</child_frame_id>
-
-            <odom_publish_frequency>50</odom_publish_frequency>
-        </plugin>
-
-        <!-- Sensor: IMU -->
-        <plugin filename="libignition-gazebo-imu-system.so"
-                name="ignition::gazebo::systems::Imu">
-        </plugin>
-
-        <!-- Sensor: LiDAR -->
-        <plugin filename="libignition-gazebo-sensors-system.so"
-                name="ignition::gazebo::systems::Sensors">
-            <render_engine>ogre2</render_engine>
-        </plugin>
-    </gazebo>
-
+    <!-- Sensor: LiDAR -->
+    <plugin filename="libignition-gazebo-sensors-system.so" name="ignition::gazebo::systems::Sensors">
+      <render_engine>ogre2</render_engine>
+    </plugin>
+  </gazebo>
 </robot>

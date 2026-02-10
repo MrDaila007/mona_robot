@@ -13,29 +13,54 @@
 # limitations under the License.
 
 cmake_minimum_required(VERSION 3.8)
-project(mona_description)
+project(mona_perception)
 
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wall -Wextra -Wpedantic)
 endif()
 
-find_package(ament_cmake  REQUIRED)
-find_package(urdf         REQUIRED)
-find_package(xacro        REQUIRED)
+find_package(ament_cmake      REQUIRED)
+find_package(rclcpp           REQUIRED)
+find_package(sensor_msgs      REQUIRED)
+find_package(laser_geometry   REQUIRED)
+find_package(tf2_ros          REQUIRED)
+find_package(tf2_sensor_msgs  REQUIRED)
+find_package(message_filters  REQUIRED)
 
-install(
-  DIRECTORY launch urdf meshes rviz worlds
-  DESTINATION share/${PROJECT_NAME}
+add_executable(mona_perception_node src/lidar_merger_node.cpp)
+
+ament_target_dependencies(mona_perception_node
+  rclcpp
+  sensor_msgs
+  laser_geometry
+  tf2_ros
+  tf2_sensor_msgs
+  message_filters
+)
+
+install(TARGETS
+  mona_perception_node
+  DESTINATION lib/${PROJECT_NAME}
 )
 
 if(BUILD_TESTING)
   # 1. Используем ручной поиск конкретных пакетов (вместо ament_lint_auto)
+  find_package(ament_cmake_cppcheck   REQUIRED)
+  find_package(ament_cmake_cpplint    REQUIRED)
+  find_package(ament_cmake_uncrustify REQUIRED)
+  find_package(ament_cmake_clang_tidy REQUIRED)
   find_package(ament_cmake_xmllint    REQUIRED)
   find_package(ament_cmake_lint_cmake REQUIRED)
   find_package(ament_cmake_copyright  REQUIRED)
   find_package(ament_cmake_flake8     REQUIRED)
 
   # 2. Запускаем каждый линтер вручную
+  # C++ статический анализ и стиль
+  ament_cppcheck()
+  ament_cpplint()
+  # uncrustify с кастомным конфигом
+  ament_uncrustify(CONFIG_FILE "${CMAKE_CURRENT_SOURCE_DIR}/../../configs/uncrustify.cfg")
+
   # Проверка лицензий (Copyright)
   ament_copyright()
 
