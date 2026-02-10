@@ -15,12 +15,12 @@ RUN apt-get update && apt-get install -y \
     python3-colcon-common-extensions \
     ros-humble-xacro \
     ros-humble-rviz2 \
-    ros-humble-gazebo-ros-pkgs \
+    ros-humble-ros-gz \
     sudo \
     python3-pip \
     && rm -rf /var/lib/apt/lists/* \
-    && pip3 install --upgrade pip \
-    && pip3 install "pycodestyle<2.9.0" "flake8<5.0.0" "autopep8<2.1.0"
+    && pip3 install --no-cache-dir --upgrade pip \
+    && pip3 install --no-cache-dir "pycodestyle<2.9.0" "flake8<5.0.0" "autopep8<2.1.0"
 
 # 3. Создание пользователя и настройка прав
 RUN groupadd --gid $USER_GID $USERNAME \

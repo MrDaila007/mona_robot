@@ -5,8 +5,9 @@ Panels:
     Property Tree Widget:
       Expanded:
         - /Global Options1
-        - /Status1
-        - /RobotModel1
+        - /LaserScan1/Topic1
+        - /LaserScan3/Topic1
+        - /LaserScan4/Topic1
       Splitter Ratio: 0.5
     Tree Height: 840
   - Class: rviz_common/Selection
@@ -26,7 +27,7 @@ Panels:
     Experimental: false
     Name: Time
     SyncMode: 0
-    SyncSource: LaserScan
+    SyncSource: ""
 Visualization Manager:
   Class: ""
   Displays:
@@ -75,6 +76,21 @@ Visualization Manager:
           Show Axes: false
           Show Trail: false
           Value: true
+        imu_link:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        led_strip_link:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        lidar_back_link:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
         lidar_front_link:
           Alpha: 1
           Show Axes: false
@@ -85,12 +101,17 @@ Visualization Manager:
           Show Axes: false
           Show Trail: false
           Value: true
-        lidar_rear_link:
+        lidar_right_link:
           Alpha: 1
           Show Axes: false
           Show Trail: false
           Value: true
-        lidar_right_link:
+        wheel_back_left_link:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        wheel_back_right_link:
           Alpha: 1
           Show Axes: false
           Show Trail: false
@@ -101,16 +122,6 @@ Visualization Manager:
           Show Trail: false
           Value: true
         wheel_front_right_link:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        wheel_rear_left_link:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        wheel_rear_right_link:
           Alpha: 1
           Show Axes: false
           Show Trail: false
@@ -132,15 +143,25 @@ Visualization Manager:
           Value: true
         base_link:
           Value: true
+        imu_link:
+          Value: true
+        led_strip_link:
+          Value: true
+        lidar_back_link:
+          Value: true
         lidar_front_link:
           Value: true
         lidar_left_link:
           Value: true
-        lidar_rear_link:
-          Value: true
         lidar_right_link:
           Value: true
-        odom:
+        wheel_back_left_link:
+          Value: true
+        wheel_back_right_link:
+          Value: true
+        wheel_front_left_link:
+          Value: true
+        wheel_front_right_link:
           Value: true
       Marker Scale: 1
       Name: TF
@@ -150,17 +171,34 @@ Visualization Manager:
       Tree:
         base_footprint:
           base_link:
+            imu_link:
+              {}
+            led_strip_link:
+              {}
+            lidar_back_link:
+              {}
             lidar_front_link:
               {}
             lidar_left_link:
               {}
-            lidar_rear_link:
-              {}
             lidar_right_link:
               {}
-        odom:
-          {}
+            wheel_back_left_link:
+              {}
+            wheel_back_right_link:
+              {}
+            wheel_front_left_link:
+              {}
+            wheel_front_right_link:
+              {}
       Update Interval: 0
+      Value: true
+    - Class: rviz_default_plugins/Axes
+      Enabled: true
+      Length: 1
+      Name: Axes
+      Radius: 0.10000000149011612
+      Reference Frame: imu_link
       Value: true
     - Alpha: 1
       Autocompute Intensity Bounds: true
@@ -191,7 +229,7 @@ Visualization Manager:
         Durability Policy: Volatile
         Filter size: 10
         History Policy: Keep Last
-        Reliability Policy: Reliable
+        Reliability Policy: Best Effort
         Value: /lidar_front/scan
       Use Fixed Frame: true
       Use rainbow: true
@@ -225,7 +263,7 @@ Visualization Manager:
         Durability Policy: Volatile
         Filter size: 10
         History Policy: Keep Last
-        Reliability Policy: Reliable
+        Reliability Policy: Best Effort
         Value: /lidar_left/scan
       Use Fixed Frame: true
       Use rainbow: true
@@ -259,7 +297,7 @@ Visualization Manager:
         Durability Policy: Volatile
         Filter size: 10
         History Policy: Keep Last
-        Reliability Policy: Reliable
+        Reliability Policy: Best Effort
         Value: /lidar_right/scan
       Use Fixed Frame: true
       Use rainbow: true
@@ -274,16 +312,16 @@ Visualization Manager:
       Channel Name: intensity
       Class: rviz_default_plugins/LaserScan
       Color: 255; 255; 255
-      Color Transformer: Intensity
+      Color Transformer: ""
       Decay Time: 0
       Enabled: true
       Invert Rainbow: false
       Max Color: 255; 255; 255
-      Max Intensity: 0
+      Max Intensity: 4096
       Min Color: 0; 0; 0
       Min Intensity: 0
       Name: LaserScan
-      Position Transformer: XYZ
+      Position Transformer: ""
       Selectable: true
       Size (Pixels): 3
       Size (m): 0.009999999776482582
@@ -293,10 +331,49 @@ Visualization Manager:
         Durability Policy: Volatile
         Filter size: 10
         History Policy: Keep Last
-        Reliability Policy: Reliable
-        Value: /lidar_rear/scan
+        Reliability Policy: Best Effort
+        Value: /lidar_back/scan
       Use Fixed Frame: true
       Use rainbow: true
+      Value: true
+    - Angle Tolerance: 0.10000000149011612
+      Class: rviz_default_plugins/Odometry
+      Covariance:
+        Orientation:
+          Alpha: 0.5
+          Color: 255; 255; 127
+          Color Style: Unique
+          Frame: Local
+          Offset: 1
+          Scale: 1
+          Value: true
+        Position:
+          Alpha: 0.30000001192092896
+          Color: 204; 51; 204
+          Scale: 1
+          Value: true
+        Value: true
+      Enabled: true
+      Keep: 100
+      Name: Odometry
+      Position Tolerance: 0.10000000149011612
+      Shape:
+        Alpha: 1
+        Axes Length: 1
+        Axes Radius: 0.10000000149011612
+        Color: 255; 25; 0
+        Head Length: 0.30000001192092896
+        Head Radius: 0.10000000149011612
+        Shaft Length: 1
+        Shaft Radius: 0.05000000074505806
+        Value: Arrow
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        Filter size: 10
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /odom
       Value: true
   Enabled: true
   Global Options:
@@ -344,25 +421,25 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz_default_plugins/Orbit
-      Distance: 7.777645111083984
+      Distance: 3.6119699478149414
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
         Swap Stereo Eyes: false
         Value: false
       Focal Point:
-        X: 0.47210630774497986
-        Y: -0.08170872926712036
-        Z: -0.43856310844421387
+        X: -0.1812002807855606
+        Y: 0.18817400932312012
+        Z: 0.07793961465358734
       Focal Shape Fixed Size: true
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.8353978395462036
+      Pitch: 0.6503982543945312
       Target Frame: <Fixed Frame>
       Value: Orbit (rviz)
-      Yaw: 4.9035820960998535
+      Yaw: 5.61857795715332
     Saved: ~
 Window Geometry:
   Displays:
