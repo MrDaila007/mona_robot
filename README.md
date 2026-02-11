@@ -8,7 +8,7 @@
 Проект использует строгую изоляцию среды через Docker.
 ```bash
 # Клонирование репозитория
-git clone [https://github.com/vladubase/mona_robot.git](https://github.com/vladubase/mona_robot.git)
+git clone git@github.com:vladubase/mona_robot.git ~/mona_robot
 cd mona_robot
 
 # Запуск среды разработки
