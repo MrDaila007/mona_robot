@@ -13,6 +13,7 @@ RUN apt-get update && apt-get install -y \
     git \
     ros-humble-xacro ros-humble-rviz2 ros-humble-ros-gz \
     ros-humble-laser-geometry ros-humble-tf2-sensor-msgs \
+    ros-humble-rqt-graph ros-humble-rqt-common-plugins \
     sudo \
     python3-pip \
     && rm -rf /var/lib/apt/lists/* \
