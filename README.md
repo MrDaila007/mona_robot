@@ -2,6 +2,7 @@
 > Проект автономного мобильного робота для складской логистики. Система построена на базе ROS 2 Humble и использует контейнеризированную среду разработки для гарантии воспроизводимости кода.
 
 ![CI Status](https://github.com/vladubase/mona_robot/actions/workflows/ci.yml/badge.svg)
+![Mona Robot Simulation Preview](docs/images/mona_gazebo_preview.png)
 ## О проекте
 **MONA** (Modular Open Navigating AMR) — масштабируемая архитектура управления флотом роботов. Основной упор сделан на безопасность (Safety-Critical), модульность и соответствие индустриальным стандартам.
 ## Быстрый старт
