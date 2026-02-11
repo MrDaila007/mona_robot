@@ -78,9 +78,9 @@ else
 fi
 
 echo -e "${GREEN}=================================================${NC}"
-echo -e "${GREEN}[READY] Launching mona_description bringup...${NC}"
+echo -e "${GREEN}[READY] Launching mona_core bringup...${NC}"
 echo -e "${BLUE}Press Ctrl+C to stop the simulation.${NC}"
 echo -e "${GREEN}=================================================${NC}"
 
 # Запускаем через exec, чтобы системные сигналы (SIGINT) корректно пробрасывались
-exec ros2 launch mona_description bringup.launch.py
+exec ros2 launch mona_core bringup.launch.py

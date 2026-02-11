@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 # Copyright 2026 vladubase
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,10 +17,10 @@
 import os
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
-from launch.actions import IncludeLaunchDescription, SetEnvironmentVariable
+from launch.actions import IncludeLaunchDescription, SetEnvironmentVariable, ExecuteProcess
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration
-from launch_ros.actions import Node
+from launch_ros.actions import Node, LifecycleNode
 import xacro
 
 
@@ -28,9 +30,9 @@ def generate_launch_description():
     pkg_ros_gz_sim = get_package_share_directory('ros_gz_sim')
 
     # Пути к файлам
-    xacro_file = os.path.join(pkg_mona_description, 'urdf', 'mona.urdf.xacro')
+    xacro_file = os.path.join(pkg_mona_description, 'urdf',  'mona.urdf.xacro')
     world_file = os.path.join(pkg_mona_description, 'worlds', 'warehouse.sdf')
-    rviz_config_file = os.path.join(pkg_mona_description, 'rviz', 'mona.rviz')
+    rviz_config_file = os.path.join(pkg_mona_description, 'rviz',  'mona.rviz')
 
     # Настройка окружения
     resource_env = SetEnvironmentVariable(
@@ -42,7 +44,7 @@ def generate_launch_description():
     robot_description_config = xacro.process_file(xacro_file)
     robot_description = {'robot_description': robot_description_config.toxml()}
 
-    # НОДЫ И ЗАПУСК
+    # ОСНОВНЫЕ НОДЫ
     use_sim_time = LaunchConfiguration('use_sim_time', default='true')
 
     # 1. Robot State Publisher
@@ -78,11 +80,11 @@ def generate_launch_description():
         package='ros_gz_bridge',
         executable='parameter_bridge',
         arguments=[
-            '/cmd_vel@geometry_msgs/msg/Twist@ignition.msgs.Twist',
-            '/odom@nav_msgs/msg/Odometry@ignition.msgs.Odometry',
-            '/tf@tf2_msgs/msg/TFMessage@ignition.msgs.Pose_V',
-            '/joint_states@sensor_msgs/msg/JointState@ignition.msgs.Model',
-            '/clock@rosgraph_msgs/msg/Clock@ignition.msgs.Clock',
+            '/cmd_vel@geometry_msgs/msg/Twist]ignition.msgs.Twist',
+            '/odom@nav_msgs/msg/Odometry[ignition.msgs.Odometry',
+            '/tf@tf2_msgs/msg/TFMessage[ignition.msgs.Pose_V',
+            '/joint_states@sensor_msgs/msg/JointState[ignition.msgs.Model',
+            '/clock@rosgraph_msgs/msg/Clock[ignition.msgs.Clock',
             '/lidar_front/scan@sensor_msgs/msg/LaserScan[ignition.msgs.LaserScan',
             '/lidar_back/scan@sensor_msgs/msg/LaserScan[ignition.msgs.LaserScan',
             '/lidar_left/scan@sensor_msgs/msg/LaserScan[ignition.msgs.LaserScan',
@@ -96,15 +98,6 @@ def generate_launch_description():
         output='screen'
     )
 
-    # 5. Нода объединения лидаров
-    lidar_merger = Node(
-        package='mona_perception',
-        executable='mona_perception_node',
-        name='mona_lidar_merger',
-        output='screen',
-        parameters=[{'use_sim_time': use_sim_time}]
-    )
-
     # 5. Rviz2
     node_rviz = Node(
         package='rviz2',
@@ -115,12 +108,54 @@ def generate_launch_description():
         output='screen'
     )
 
+    safety_node = LifecycleNode(
+        package='mona_core',
+        executable='safety_node',
+        name='safety_node',
+        namespace='',
+        output='screen',
+        parameters=[{'use_sim_time': use_sim_time}]
+    )
+
+    lidar_merger = LifecycleNode(
+        package='mona_perception',
+        executable='mona_perception_node',
+        name='mona_lidar_merger',
+        namespace='',
+        output='screen',
+        parameters=[{'use_sim_time': use_sim_time}]
+    )
+
+    lifecycle_manager = Node(
+        package='mona_core',
+        executable='lifecycle_manager.py',
+        name='mona_lifecycle_manager',
+        output='screen',
+        parameters=[{'use_sim_time': use_sim_time}]
+    )
+
+    rosbag_record = ExecuteProcess(
+        cmd=[
+            'ros2', 'bag', 'record',
+            '-o', 'mona_flight_data',
+            '/cmd_vel',
+            '/cmd_vel_teleop',
+            '/cmd_vel_nav',
+            '/robot_status',
+            '/diagnostics'
+        ],
+        output='screen'
+    )
+
     return LaunchDescription([
         resource_env,
         node_robot_state_publisher,
         gz_sim,
         spawn_entity,
         bridge,
+        node_rviz,
+        safety_node,
         lidar_merger,
-        node_rviz
+        lifecycle_manager,
+        rosbag_record
     ])
