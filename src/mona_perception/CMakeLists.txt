@@ -21,6 +21,8 @@ endif()
 
 find_package(ament_cmake      REQUIRED)
 find_package(rclcpp           REQUIRED)
+find_package(rclcpp_lifecycle REQUIRED)
+find_package(lifecycle_msgs   REQUIRED)
 find_package(sensor_msgs      REQUIRED)
 find_package(laser_geometry   REQUIRED)
 find_package(tf2_ros          REQUIRED)
@@ -31,6 +33,8 @@ add_executable(mona_perception_node src/lidar_merger_node.cpp)
 
 ament_target_dependencies(mona_perception_node
   rclcpp
+  rclcpp_lifecycle
+  lifecycle_msgs
   sensor_msgs
   laser_geometry
   tf2_ros
@@ -38,8 +42,8 @@ ament_target_dependencies(mona_perception_node
   message_filters
 )
 
-install(TARGETS
-  mona_perception_node
+install(
+  TARGETS mona_perception_node
   DESTINATION lib/${PROJECT_NAME}
 )
 

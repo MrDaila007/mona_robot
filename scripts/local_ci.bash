@@ -130,9 +130,9 @@ echo -e "${YELLOW}Verifying test results...${NC}"
 colcon test-result --verbose
 
 if [ $? -eq 0 ]; then
-    echo -e "${GREEN}=================================================${NC}"
+    echo -e "${GREEN}====================================================${NC}"
     echo -e "${GREEN}[SUCCESS] All checks passed. Build and Tests are OK.${NC}"
-    echo -e "${GREEN}=================================================${NC}"
+    echo -e "${GREEN}====================================================${NC}"
     
     echo -e "\n${BLUE}Recommended next steps:${NC}"
     echo -e "  1. Create a new feature branch: ${YELLOW}git checkout -b <branch-name>${NC}"

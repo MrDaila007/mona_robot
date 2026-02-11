@@ -1,24 +1,28 @@
-<?xml version="1.0" ?>
-<?xml-model href="http://download.ros.org/schema/package_format3.xsd"
-            schematypens="http://www.w3.org/2001/XMLSchema"?>
-
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
-  <name>mona_safety</name>
+  <name>mona_core</name>
   <version>0.0.0</version>
-  <description>MONA safety</description>
+  <description>Mona CORE</description>
   <maintainer email="vladubase@gmail.com">vladubase</maintainer>
   <license>Apache-2.0</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>
 
   <depend>rclcpp</depend>
-  <depend>rclcpp_lifecycle</depend>
+  <depend>rclpy</depend>
+  <depend>std_msgs</depend>
+  <depend>std_srvs</depend>
   <depend>geometry_msgs</depend>
+  <depend>sensor_msgs</depend>
   <depend>lifecycle_msgs</depend>
+  <depend>ignition-gazebo6</depend>
+  <depend>ignition-transport11</depend>
+  <depend>ignition-msgs8</depend>
 
   <test_depend>ament_lint_auto</test_depend>
   <test_depend>ament_lint_common</test_depend>
-  
+
   <export>
     <build_type>ament_cmake</build_type>
   </export>
