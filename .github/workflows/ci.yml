@@ -6,8 +6,18 @@ permissions:
 on:
   push:
     branches: [ "main" ]
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - 'LICENSE'
   pull_request:
     branches: [ "main" ]
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - 'LICENSE'
+  schedule:
+    - cron: '0 2 * * 1'
 
 jobs:
   build-and-test:
@@ -27,7 +37,7 @@ jobs:
           context: .
           file: Dockerfile
           tags: mona_ci:latest
-          # Важно: load: true выгружает образ в обычный Docker демона, 
+          # Выгружаем образ в обычный Docker демон, 
           # чтобы следующий шаг (docker run) его увидел
           load: true
           build-args: |
@@ -35,6 +45,7 @@ jobs:
             USER_GID=1001
           cache-from: type=gha
           cache-to: type=gha,mode=max
+          no-cache: ${{ github.event_name == 'schedule' }}
 
       # 3. Монтируем папки src и scripts, чтобы тестировать свежий код
       - name: Run Global CI Script inside Docker
