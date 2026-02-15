@@ -26,6 +26,7 @@ find_package(lifecycle_msgs   REQUIRED)
 find_package(geometry_msgs    REQUIRED)
 find_package(std_msgs         REQUIRED)
 find_package(std_srvs         REQUIRED)
+find_package(nav_msgs         REQUIRED)
 
 add_executable(safety_node src/safety_node.cpp)
 ament_target_dependencies(safety_node
@@ -35,6 +36,7 @@ ament_target_dependencies(safety_node
   geometry_msgs
   std_msgs
   std_srvs
+  nav_msgs
 )
 
 install(
@@ -43,12 +45,12 @@ install(
 )
 
 install(
-  PROGRAMS scripts/lifecycle_manager.py
+  PROGRAMS scripts/fdir_manager.py
   DESTINATION lib/${PROJECT_NAME}
 )
 
 install(
-  DIRECTORY launch
+  DIRECTORY launch configs
   DESTINATION share/${PROJECT_NAME}
 )
 

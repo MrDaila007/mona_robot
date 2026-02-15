@@ -30,6 +30,7 @@
 #include "rclcpp/rclcpp.hpp"
 #include "rclcpp_lifecycle/lifecycle_node.hpp"
 #include "lifecycle_msgs/msg/state.hpp"
+#include "std_msgs/msg/bool.hpp"
 #include "sensor_msgs/msg/laser_scan.hpp"
 #include "sensor_msgs/msg/point_cloud2.hpp"
 #include "sensor_msgs/point_cloud2_iterator.hpp"
@@ -64,6 +65,11 @@ public:
         // Создаём Lifecycle Publisher
         publisher_ = this->create_publisher<sensor_msgs::msg::PointCloud2>(
             "perception/combined_cloud", 10);
+
+        power_sub_ = this->create_subscription<std_msgs::msg::Bool>(
+            "/hardware/power/perception_pc", 10,
+            std::bind(&LidarMerger::power_callback, this, std::placeholders::_1)
+        );
 
         // Инициализация подписчиков
         // Передаем 'this' (узел), название топика и профиль QoS
@@ -147,6 +153,17 @@ public:
     }
 
 private:
+    bool has_power_ = true;
+    rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr power_sub_;
+    void power_callback(const std_msgs::msg::Bool::SharedPtr msg) {
+        has_power_ = msg->data;
+        if (!has_power_) {
+            RCLCPP_ERROR(this->get_logger(), "POWER CUT! Perception module is going blind...");
+        } else {
+            RCLCPP_INFO(this->get_logger(), "POWER RESTORED! Perception module booting up...");
+        }
+    }
+
     void fused_callback(
         const sensor_msgs::msg::LaserScan::ConstSharedPtr &front,
         const sensor_msgs::msg::LaserScan::ConstSharedPtr &back,
@@ -156,36 +173,39 @@ private:
         if (this->get_current_state().id() != lifecycle_msgs::msg::State::PRIMARY_STATE_ACTIVE) {
             return;
         }
+        if (!has_power_) {
+            return;     // Имитируем отсутствие питания - дропаем все данные!
+        }
 
-        auto combined_cloud =
-            std::make_shared<sensor_msgs::msg::PointCloud2>();
+        auto combined_cloud = std::make_shared<sensor_msgs::msg::PointCloud2>();
         std::vector<sensor_msgs::msg::LaserScan::ConstSharedPtr> scans = {front, back, left, right};
 
-        // Проецируем каждого лидара в 3D облако в системе base_link
+        // Проецируем каждый лидар в 3D облако в системе base_link
         // Автоматически учитываем временные метки каждого луча для коррекции искажений
         for (const auto &scan : scans) {
             sensor_msgs::msg::PointCloud2 cloud_out;
             try {
-                // Ждем трансформацию до 100мс, если её еще нет в буфере
-                if (tf_buffer_->canTransform(
-                        "base_link", scan->header.frame_id,
-                        scan->header.stamp))
-                {
-                    projector_.transformLaserScanToPointCloud(
-                        "base_link", *scan, cloud_out,
-                        *tf_buffer_);
+                // В ROS 2 использование TimePointZero гарантирует получение последнего
+                // TF без блокировки. Так как лидар зафиксирован относительно base_link,
+                // этот TF не меняется со временем (Static TF).
+                // Функция transformLaserScanToPointCloud сама извлечёт TF.
+                projector_.transformLaserScanToPointCloud(
+                    "base_link",
+                    *scan,
+                    cloud_out,
+                    *tf_buffer_
+                );
 
-                    if (combined_cloud->data.empty()) {
-                        *combined_cloud = cloud_out;
-                    } else {
-                        concatenate_pointclouds(*combined_cloud, cloud_out);
-                    }
+                if (combined_cloud->data.empty()) {
+                    *combined_cloud = cloud_out;
                 } else {
-                    RCLCPP_DEBUG(
-                        this->get_logger(), "Missing TF for %s", scan->header.frame_id.c_str());
+                    concatenate_pointclouds(*combined_cloud, cloud_out);
                 }
             } catch (const std::exception &e) {
-                RCLCPP_WARN(this->get_logger(), "Projection error: %s", e.what());
+                // Используем THROTTLE, чтобы не спамить в консоль, если TF реально отвалился
+                RCLCPP_WARN_THROTTLE(
+                    this->get_logger(), *this->get_clock(), 1000,
+                    "Projection error for %s: %s", scan->header.frame_id.c_str(), e.what());
             }
         }
 

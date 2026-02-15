@@ -16,6 +16,7 @@
   <depend>geometry_msgs</depend>
   <depend>sensor_msgs</depend>
   <depend>lifecycle_msgs</depend>
+  <depend>nav_msgs</depend>
   <depend>ignition-gazebo6</depend>
   <depend>ignition-transport11</depend>
   <depend>ignition-msgs8</depend>
