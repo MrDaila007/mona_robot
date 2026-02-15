@@ -29,7 +29,6 @@ NC='\033[0m' # No Color
 
 echo -e "${BLUE}[INFO] Starting Local Continuous Integration sequence...${NC}"
 
-
 # ------------------------------------------------------------------------------
 # 0. Pre-flight Check
 # ------------------------------------------------------------------------------
@@ -39,7 +38,6 @@ if [ ! -d "src" ]; then
     echo "Please run this script from the root of your ROS 2 workspace."
     exit 1
 fi
-
 
 # ------------------------------------------------------------------------------
 # 1. Auto-format Code (Fix style before testing)
@@ -67,35 +65,27 @@ fi
 # Удаляем пробелы в конце строк (trailing whitespace) во всех CMakeLists.txt
 find src -name "CMakeLists.txt" -exec sed -i 's/[[:space:]]*$//' {} +
 
-
 # ------------------------------------------------------------------------------
 # 2. Clean Workspace
 # ------------------------------------------------------------------------------
 echo -e "${YELLOW}[2/4] Cleaning workspace (build, install, log)...${NC}"
 
-rm -rf build/ install/ log/
-
-# Verify if clean was successful
-if [ $? -ne 0 ]; then
+# Проверяем успешность очистки напрямую
+if ! rm -rf build/ install/ log/; then
     echo -e "${RED}[ERROR] Failed to clean directories.${NC}"
     exit 1
 fi
-
 
 # ------------------------------------------------------------------------------
 # 3. Build Packages
 # ------------------------------------------------------------------------------
 echo -e "${YELLOW}[3/4] Building packages...${NC}"
 
-# Run colcon build
-colcon build --cmake-clean-cache --symlink-install
-
-# Check the exit code of the build process
-if [ $? -ne 0 ]; then
+# Проверяем успешность сборки напрямую
+if ! colcon build --cmake-clean-cache --symlink-install; then
     echo -e "${RED}[ERROR] Build failed.${NC}"
     exit 1
 fi
-
 
 # ------------------------------------------------------------------------------
 # 4. Run Tests
@@ -111,15 +101,10 @@ else
 fi
 
 # Execute tests
-# Note: 'colcon test' usually returns 0 even if tests fail (it just runs them).
-# We check the actual results in the next step.
-colcon test
-
-if [ $? -ne 0 ]; then
+if ! colcon test; then
     echo -e "${RED}[ERROR] Failed to execute test runner.${NC}"
     exit 1
 fi
-
 
 # ------------------------------------------------------------------------------
 # 5. Verify Results
@@ -127,9 +112,7 @@ fi
 echo -e "${YELLOW}Verifying test results...${NC}"
 
 # 'colcon test-result' returns a non-zero exit code if any test failed
-colcon test-result --verbose
-
-if [ $? -eq 0 ]; then
+if colcon test-result --verbose; then
     echo -e "${GREEN}====================================================${NC}"
     echo -e "${GREEN}[SUCCESS] All checks passed. Build and Tests are OK.${NC}"
     echo -e "${GREEN}====================================================${NC}"

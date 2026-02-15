@@ -43,9 +43,7 @@ fi
 # ------------------------------------------------------------------------------
 echo -e "${YELLOW}[1/3] Cleaning workspace (build, install, log)...${NC}"
 
-rm -rf build/ install/ log/
-
-if [ $? -ne 0 ]; then
+if ! rm -rf build/ install/ log/; then
     echo -e "${RED}[ERROR] Failed to clean directories.${NC}"
     exit 1
 fi
@@ -57,9 +55,7 @@ echo -e "${GREEN}[OK] Workspace is clean.${NC}"
 echo -e "${YELLOW}[2/3] Building packages...${NC}"
 
 # Используем --symlink-install для быстрой правки xacro/rviz/python без пересборки
-colcon build --cmake-clean-cache --symlink-install
-
-if [ $? -ne 0 ]; then
+if ! colcon build --cmake-clean-cache --symlink-install; then
     echo -e "${RED}[ERROR] Build failed. Please check the logs above.${NC}"
     exit 1
 fi
@@ -81,6 +77,9 @@ echo -e "${GREEN}=================================================${NC}"
 echo -e "${GREEN}[READY] Launching mona_core bringup...${NC}"
 echo -e "${BLUE}Press Ctrl+C to stop the simulation.${NC}"
 echo -e "${GREEN}=================================================${NC}"
+
+# Включаем принудительную раскраску
+export RCUTILS_COLORIZED_OUTPUT=1
 
 # Запускаем через exec, чтобы системные сигналы (SIGINT) корректно пробрасывались
 exec ros2 launch mona_core bringup.launch.py

@@ -1,0 +1,65 @@
+fdir_manager:
+  ros__parameters:
+    # Глобальные тайминги
+    recovery_power_off_time:  3.0   # [сек] Держать выключенным
+    timeout_before_reboot:    5.0   # [сек] Ждать возвращения ноды перед жёстким ребутом
+
+    components:
+      # --- TIER_FATAL --- #
+      # Контроллер низкого уровня
+      motor_controller:
+        enabled:          false
+        tier:             "FATAL"
+        node_name:        "mona_base_node"
+        power_topic:      "/hardware/power/base_mcu"
+        startup_time:     2.0       # [сек] Быстрая загрузка контроллера моторов
+      # Главный модуль безопасности
+      safety_core:
+        enabled:          true
+        tier:             "FATAL"
+        node_name:        "safety_node"
+        power_topic:      "/hardware/power/safety_mcu"
+        startup_time:     1.0       
+      # Модуль восприятия (Сборка всех лидаров в одно облако)
+      perception_merger:
+        enabled:          true
+        tier:             "PRIMARY"
+        node_name:        "mona_lidar_merger"
+        power_topic:      "/hardware/power/perception_pc"
+        fallback_action:  "drive_blind"
+        startup_time:     2.0
+      
+      # --- TIER_PRIMARY --- #
+      lidar_front:
+        enabled:          false
+        tier:             "PRIMARY"
+        node_name:        "mona_lidar_front"
+        power_topic:      "/hardware/power/lidar_front"
+        fallback_action:  "drive_reverse"
+        startup_time:     40.0      # [сек] Долгая загрузка Linux внутри лидара
+      
+      # --- TIER_AUXILIARY --- #
+      lidar_back:
+        enabled:          false
+        tier:             "AUXILIARY"
+        node_name:        "mona_lidar_back"
+        power_topic:      "/hardware/power/lidar_back"
+        startup_time:     40.0      # [сек]
+      lidar_left:
+        enabled:          false
+        tier:             "AUXILIARY"
+        node_name:        "mona_lidar_left"
+        power_topic:      "/hardware/power/lidar_left"
+        startup_time:     40.0      # [сек]
+      lidar_right:
+        enabled:          false
+        tier:             "AUXILIARY"
+        node_name:        "mona_lidar_right"
+        power_topic:      "/hardware/power/lidar_right"
+        startup_time:     40.0      # [сек]
+      imu_sensor:
+        enabled:          false
+        tier:             "AUXILIARY"
+        node_name:        "mona_imu"
+        power_topic:      "/hardware/power/imu"
+        startup_time:     1.0       # [сек] 

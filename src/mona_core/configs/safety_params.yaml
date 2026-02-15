@@ -14,15 +14,15 @@
 
 safety_node:
   ros__parameters:
-    # --- Watchdog Settings ---
-    command_timeout:      0.5     # [сек] Если нет команд столько времени -> STOP
-    server_timeout:       1.0     # [сек] Если сервер молчит (нет heartbeat) -> STOP
-    manual_takeover_time: 2.0     # [сек] Сколько ждать после последней кнопки человека, прежде чем вернуть управление серверу
+    # --- Watchdog Settings --- #
+    command_timeout:      0.5     # [сек] Если нет команд X времени -> STOP
+    server_timeout:       2.0     # [сек] Если сервер молчит (нет heartbeat) -> STOP
+    manual_takeover_time: 5.0     # [сек] Сколько ждать после последней кнопки человека, прежде чем вернуть управление серверу
     
-    # --- Limits ---
+    # --- Limits --- #
     max_speed_normal:     1.0     # [м/с]
     max_speed_degraded:   0.3     # [м/с] Если система "задыхается"
     
-    # --- System Health ---
+    # --- System Health --- #
     min_lidar_freq:       9.0     # [Гц ] Если лидар медленнее 9 Гц -> ОШИБКА
     cpu_warning_thresh:   85.0    # [ % ] (требует системного монитора)

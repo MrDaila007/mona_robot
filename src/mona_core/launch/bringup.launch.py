@@ -30,14 +30,20 @@ def generate_launch_description():
     pkg_ros_gz_sim = get_package_share_directory('ros_gz_sim')
 
     # Пути к файлам
-    xacro_file = os.path.join(pkg_mona_description, 'urdf',  'mona.urdf.xacro')
+    xacro_file = os.path.join(pkg_mona_description, 'urdf', 'mona.urdf.xacro')
     world_file = os.path.join(pkg_mona_description, 'worlds', 'warehouse.sdf')
-    rviz_config_file = os.path.join(pkg_mona_description, 'rviz',  'mona.rviz')
+    rviz_config_file = os.path.join(pkg_mona_description, 'rviz', 'mona.rviz')
 
     # Настройка окружения
     resource_env = SetEnvironmentVariable(
         name='IGN_GAZEBO_RESOURCE_PATH',
         value=[os.path.dirname(pkg_mona_description), ':', pkg_mona_description]
+    )
+
+    # Принудительная подсветка логов ROS 2
+    color_env = SetEnvironmentVariable(
+        name='RCUTILS_COLORIZED_OUTPUT',
+        value='1'
     )
 
     # Обработка URDF
@@ -126,10 +132,18 @@ def generate_launch_description():
         parameters=[{'use_sim_time': use_sim_time}]
     )
 
-    lifecycle_manager = Node(
+    # lifecycle_manager = Node(
+    #     package='mona_core',
+    #     executable='lifecycle_manager.py',
+    #     name='mona_lifecycle_manager',
+    #     output='screen',
+    #     parameters=[{'use_sim_time': use_sim_time}]
+    # )
+
+    fdir_manager = Node(
         package='mona_core',
-        executable='lifecycle_manager.py',
-        name='mona_lifecycle_manager',
+        executable='fdir_manager.py',
+        name='mona_fdir_manager',
         output='screen',
         parameters=[{'use_sim_time': use_sim_time}]
     )
@@ -137,7 +151,7 @@ def generate_launch_description():
     rosbag_record = ExecuteProcess(
         cmd=[
             'ros2', 'bag', 'record',
-            '-o', 'mona_flight_data',
+            # '-o', 'mona_flight_data',
             '/cmd_vel',
             '/cmd_vel_teleop',
             '/cmd_vel_nav',
@@ -149,6 +163,7 @@ def generate_launch_description():
 
     return LaunchDescription([
         resource_env,
+        color_env,
         node_robot_state_publisher,
         gz_sim,
         spawn_entity,
@@ -156,6 +171,7 @@ def generate_launch_description():
         node_rviz,
         safety_node,
         lidar_merger,
-        lifecycle_manager,
+        # lifecycle_manager,
+        fdir_manager,
         rosbag_record
     ])
