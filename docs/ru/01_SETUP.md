@@ -49,3 +49,4 @@ docker exec -it mona_dev bash
 Контейнер запускается в привилегированном режиме (`privileged: true`) и с сетевым драйвером хоста (`network_mode: host`) для обеспечения:
 1. Прямого доступа к USB-портам (Lidar, IMU, Microcontrollers).
 2. Работы протокола DDS (ROS 2 Discovery) без NAT.
+

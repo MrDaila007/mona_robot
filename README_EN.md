@@ -55,13 +55,13 @@ make down    # alias: d
 
 ## Documentation navigation
 
-All technical documentation lives in the `docs/` directory (currently in Russian):
+All technical documentation lives in the `docs/` directory, split by language.
 
-| **Document**                                | **Audience**     | **Description**                                               |
-| ------------------------------------------ | ---------------- | ------------------------------------------------------------- |
-| **[01_SETUP.md](docs/01_SETUP.md)**        | DevOps           | Environment setup, Docker, networking and hardware access.    |
-| **[02_CPP_GUIDE.md](docs/02_CPP_GUIDE.md)**| C++ Developers   | C++ coding standards, node templates and CMake patterns.      |
-| **[03_SAFETY_AND_FDIR.md](docs/03_SAFETY_AND_FDIR.md)** | Architects | Safety pipeline, FDIR, E‑Stop logic.                         |
-| **[04_WORKFLOW.md](docs/04_WORKFLOW.md)**  | All developers   | Build, testing and CI workflow.                               |
-| **[CONTRIBUTING.md](docs/CONTRIBUTING.md)**| Contributors     | Git Flow, fault injection testing and pull request process.   |
+| **Document (RU / EN)**                                                                                                    | **Audience**     | **Description**                                               |
+| ------------------------------------------------------------------------------------------------------------------------ | ---------------- | ------------------------------------------------------------- |
+| **[01_SETUP.md](docs/ru/01_SETUP.md)** / **[01_SETUP.md](docs/en/01_SETUP.md)**                                         | DevOps           | Environment setup, Docker, networking and hardware access.    |
+| **[02_CPP_GUIDE.md](docs/ru/02_CPP_GUIDE.md)** / **[02_CPP_GUIDE.md](docs/en/02_CPP_GUIDE.md)**                         | C++ Developers   | C++ coding standards, node templates and CMake patterns.      |
+| **[03_SAFETY_AND_FDIR.md](docs/ru/03_SAFETY_AND_FDIR.md)** / **[03_SAFETY_AND_FDIR.md](docs/en/03_SAFETY_AND_FDIR.md)** | Architects       | Safety pipeline, FDIR, E‑Stop logic.                          |
+| **[04_WORKFLOW.md](docs/ru/04_WORKFLOW.md)** / **[04_WORKFLOW.md](docs/en/04_WORKFLOW.md)**                             | All developers   | Build, testing and CI workflow.                               |
+| **[CONTRIBUTING.md](docs/ru/CONTRIBUTING.md)** / **[CONTRIBUTING.md](docs/en/CONTRIBUTING.md)**                         | Contributors     | Git Flow, fault injection testing and pull request process.   |
 

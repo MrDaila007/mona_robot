@@ -70,3 +70,4 @@ rosdep update && rosdep install --from-paths src --ignore-src -r -y
 * **Симптом:** Ошибка копирования папок (launch, config).
 * **Причина:** В `CMakeLists.txt` указана папка, которой нет в проекте.
 * **Решение:** Удалите лишнюю строку `install(DIRECTORY ...)` в CMakeLists.txt.
+
