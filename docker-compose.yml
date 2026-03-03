@@ -7,7 +7,6 @@ services:
         USERNAME: ${USER:-mona_dev}
         USER_UID: ${UID:-1000}
         USER_GID: ${GID:-1000}
-    
     image: mona_robot:humble
     container_name: mona_dev
     
