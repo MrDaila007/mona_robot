@@ -2,7 +2,7 @@
 
 > Проект автономного мобильного робота для складской логистики. Система построена на базе ROS 2 Humble и использует контейнеризированную среду разработки для гарантии воспроизводимости кода.
 >
-> English version: see `README_EN.md`.
+> English version: see [README_EN.md](README_EN.md).
 
 [![CI](https://github.com/vladubase/mona_robot/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/vladubase/mona_robot/actions/workflows/ci.yml)
 [![CodeQL](https://github.com/vladubase/mona_robot/actions/workflows/github-code-scanning/codeql/badge.svg?branch=main)](https://github.com/vladubase/mona_robot/actions/workflows/github-code-scanning/codeql)
@@ -48,10 +48,10 @@ make down    # alias: d
 ## Навигация по документации
 Вся техническая документация расположена в директории `docs/`.
 
-| **Документ**                                            | **Аудитория**    | **Описание**                                     |
-| ------------------------------------------------------- | ---------------- | ------------------------------------------------ |
-| **[01_SETUP.md](docs/01_SETUP.md)**                     | DevOps           | Настройка Docker, сети и доступа к оборудованию. |
-| **[02_CPP_GUIDE.md](docs/02_CPP_GUIDE.md)**             | Разработчики C++ | Стандарты написания кода, шаблоны нод и CMake.   |
-| **[03_SAFETY_AND_FDIR.md](docs/03_SAFETY_AND_FDIR.md)** | Архитекторы      | Пайплайн безопасности, FDIR, логика E-Stop.      |
-| **[04_WORKFLOW.md](docs/04_WORKFLOW.md)**               | Все разработчики | Инструкции по сборке, тестированию и CI.         |
-| **[CONTRIBUTING.md](docs/CONTRIBUTING.md)**             | Контрибьюторы    | Git Flow, Fault Injection тестирование и PR.     |
+| **Документ**                                                    | **Аудитория**    | **Описание**                                     |
+| --------------------------------------------------------------- | ---------------- | ------------------------------------------------ |
+| **[01_SETUP.md](docs/ru/01_SETUP.md)**                         | DevOps           | Настройка Docker, сети и доступа к оборудованию. |
+| **[02_CPP_GUIDE.md](docs/ru/02_CPP_GUIDE.md)**                 | Разработчики C++ | Стандарты написания кода, шаблоны нод и CMake.   |
+| **[03_SAFETY_AND_FDIR.md](docs/ru/03_SAFETY_AND_FDIR.md)**     | Архитекторы      | Пайплайн безопасности, FDIR, логика E-Stop.      |
+| **[04_WORKFLOW.md](docs/ru/04_WORKFLOW.md)**                   | Все разработчики | Инструкции по сборке, тестированию и CI.         |
+| **[CONTRIBUTING.md](docs/ru/CONTRIBUTING.md)**                 | Контрибьюторы    | Git Flow, Fault Injection тестирование и PR.     |
