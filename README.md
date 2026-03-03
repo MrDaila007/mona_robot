@@ -1,6 +1,8 @@
 # MONA: Modular Open Navigating AMR
 
 > Проект автономного мобильного робота для складской логистики. Система построена на базе ROS 2 Humble и использует контейнеризированную среду разработки для гарантии воспроизводимости кода.
+>
+> English version: see `README_EN.md`.
 
 [![CI](https://github.com/vladubase/mona_robot/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/vladubase/mona_robot/actions/workflows/ci.yml)
 [![CodeQL](https://github.com/vladubase/mona_robot/actions/workflows/github-code-scanning/codeql/badge.svg?branch=main)](https://github.com/vladubase/mona_robot/actions/workflows/github-code-scanning/codeql)
@@ -18,11 +20,30 @@
 git clone git@github.com:vladubase/mona_robot.git ~/mona_robot
 cd mona_robot
 
-# Запуск среды разработки
+# Запуск среды разработки (CPU-only, без GPU)
 docker compose up -d --build
+
+# Запуск с поддержкой NVIDIA GPU (через дополнительный compose-файл)
+# Перед этим убедитесь, что установлены драйверы и nvidia-container-toolkit,
+# а команда ниже успешно отрабатывает:
+#   nvidia-smi
+docker compose -f docker-compose.yml -f docker-compose.gpu.yml up -d --build
 
 # Вход в контейнер
 docker exec -it mona_dev bash
+```
+
+## Быстрый старт через Makefile
+Для удобства есть `Makefile` с короткими алиасами:
+```bash
+# Запуск среды разработки (CPU-only, без GPU)
+make up      # alias: u
+
+# Запуск с поддержкой NVIDIA GPU
+make up-gpu  # alias: ug
+
+# Остановка контейнеров
+make down    # alias: d
 ```
 ## Навигация по документации
 Вся техническая документация расположена в директории `docs/`.
