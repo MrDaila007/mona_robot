@@ -38,6 +38,7 @@ WORKDIR /home/$USERNAME/mona_ws
 COPY --chown=$USERNAME:$USER_GID src src
 COPY --chown=$USERNAME:$USER_GID configs configs
 
-# 7. Авто-source
-RUN echo "source /opt/ros/humble/setup.bash" >> /home/$USERNAME/.bashrc && \
-    echo "source /home/$USERNAME/mona_ws/install/setup.bash" >> /home/$USERNAME/.bashrc
+# Настройка окружения ROS 2 и прав доступа к GPU
+RUN echo "source /opt/ros/humble/setup.bash" >> /home/${USERNAME}/.bashrc && \
+    echo "source /home/${USERNAME}/mona_ws/install/setup.bash" >> /home/${USERNAME}/.bashrc && \
+    echo 'if [ -d /dev/dri ]; then sudo chmod -R 777 /dev/dri > /dev/null 2>&1; fi' >> /home/${USERNAME}/.bashrc
