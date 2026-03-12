@@ -32,7 +32,7 @@ jobs:
 
       # 2. Сборка образа через Buildx с кэшированием
       - name: Build Docker Image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           file: Dockerfile
