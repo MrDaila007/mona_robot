@@ -28,7 +28,7 @@ jobs:
 
       # 1. Настройка Buildx (нужен для кэша)
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
 
       # 2. Сборка образа через Buildx с кэшированием
       - name: Build Docker Image
