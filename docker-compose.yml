@@ -18,7 +18,9 @@ services:
     environment:
       - DISPLAY=${DISPLAY}
       - QT_X11_NO_MITSHM=1
+      - QT_QPA_PLATFORM=xcb
       - ALSOFT_DRIVERS=null
+      - MESA_DEBUG=silent
     
     volumes:
       - ./src:/home/${USER:-mona_dev}/mona_ws/src
@@ -26,6 +28,9 @@ services:
       - ./configs:/home/${USER:-mona_dev}/mona_ws/configs
       - /tmp/.X11-unix:/tmp/.X11-unix:rw
       - ~/.Xauthority:/home/${USER:-mona_dev}/.Xauthority:rw
+    
+    devices:
+      - /dev/dri:/dev/dri
 
     command: sleep infinity
     tty: true

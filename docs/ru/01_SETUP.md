@@ -1,52 +1,54 @@
-# Настройка окружения (Environment Setup)
+# Настройка окружения и запуск (Environment Setup)
 
 > **Environment as Code**
 > 
 > Среда разработки должна быть полностью детерминирована. Инфраструктура описана в Dockerfile.
 
-## 1. Требования к хосту
-* OS: Linux (Ubuntu 22.04 рекомендуется)
-* Docker Engine (версия 24.0+)
-* Docker Compose Plugin
+Данный документ описывает процедуру развертывания проекта в изолированной среде Docker. Подход "Simulation First" обеспечивает идентичность сред разработки и минимизирует зависимость от аппаратного обеспечения хоста.
+
+## 1. Системные требования
 * Git
+* Docker Engine (версия 24.0+)
+* Docker Compose (плагин V2)
 
-## 2. Архитектура контейнера
-Базовый образ: `ros:humble-ros-base`.
-**Образ содержит:**
-* ROS 2 Humble (Core packages)
-* Инструменты сборки (`colcon`, `gcc`, `cmake`)
-* Линтеры и форматтеры (`uncrustify`, `cpplint`, `cppcheck`)
-* Зависимости проекта (устанавливаются через `rosdep`)
-
-## 3. Структура проекта
-```text
-MONA_ws/
-├── configs/            # Конфиги проверки кода
-├── docs/               # Документация
-├── scripts/            # Скрипты CI и запуска ROS2
-├── src/                # Исходный код пакетов
-├── docker-compose.yml  # Оркестрация запуска и параметры сети
-└── Dockerfile          # Описание сборки образа
-```
-
-## 4. Управление контейнером
-### Первый запуск
-При первом развертывании или изменении `Dockerfile`/`package.xml` необходима полная пересборка:
+### 1.1. Настройка для Linux (Ubuntu/Arch Linux)
+Установка Docker Engine через официальный скрипт:
 ```bash
-docker compose up -d --build
+curl -fsSL [https://get.docker.com](https://get.docker.com) -o get-docker.sh
+sudo sh get-docker.sh
+sudo usermod -aG docker $USER
+newgrp docker
+```
+Примечание: Убедитесь, что установлены пакеты для работы со встроенной графикой (например, `mesa`).
+
+### 1.2. Настройка для Windows 11 (WSL2)
+1. Установите Docker Desktop для Windows.
+2. В настройках Docker Desktop перейдите в раздел Settings -> Resources -> WSL Integration.
+3. Включите интеграцию для используемого дистрибутива Ubuntu (22.04 LTS).
+4. Перезапустите Docker Desktop. Установка Docker внутри терминала Ubuntu не требуется.
+
+## 2. Клонирование репозитория
+```bash
+git clone git@github.com:vladubase/mona_robot.git
+cd mona_robot
 ```
 
-### Вход в среду
-Все команды разработки (сборка, тест, запуск) выполняются **только** внутри контейнера:
+## 3. Сборка и запуск контейнера
+При первом развертывании, а также при изменении конфигураций (`Dockerfile`, `docker-compose.yml`), необходимо выполнить полную сборку образа:
+```bash
+docker compose build --no-cache
+docker compose up -d --force-recreate
+```
+
+Для последующих запусков достаточно использовать:
+```bash
+docker compose up -d
+```
+
+## 4. Разработка и тестирование
+Взаимодействие с ROS 2 и компиляция кода осуществляются исключительно внутри контейнера:
 ```bash
 docker exec -it mona_dev bash
+
+./scripts/run_sim.bash
 ```
-
-### Переменные окружения
-Конфигурация задается в файле `.env` (если существует) или напрямую в `docker-compose.yml`.
-
-### Доступ к оборудованию
-Контейнер запускается в привилегированном режиме (`privileged: true`) и с сетевым драйвером хоста (`network_mode: host`) для обеспечения:
-1. Прямого доступа к USB-портам (Lidar, IMU, Microcontrollers).
-2. Работы протокола DDS (ROS 2 Discovery) без NAT.
-
