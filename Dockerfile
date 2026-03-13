@@ -2,43 +2,46 @@ FROM ros:humble-ros-base
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-# 1. User Mapping
+# 1. User Mapping Configuration
 ARG USERNAME=mona_dev
 ARG USER_UID=1000
 ARG USER_GID=$USER_UID
 
-# 2. Установка пакетов (System + Dev + Sim + Audio)
-RUN apt-get update && apt-get install -y \
+# 2. System and ROS 2 Dependencies Installation
+# Includes Kisak PPA for updated Mesa drivers required by modern Linux kernels
+RUN apt-get update && apt-get install -y software-properties-common curl sudo \
+    && add-apt-repository ppa:kisak/kisak-mesa -y \
+    && apt-get update && apt-get install -y \
     build-essential cmake python3-colcon-common-extensions \
     git \
     ros-humble-xacro ros-humble-rviz2 ros-humble-ros-gz \
     ros-humble-laser-geometry ros-humble-tf2-sensor-msgs \
     ros-humble-rqt-graph ros-humble-rqt-common-plugins \
-    sudo \
+    ros-humble-robot-localization \
     python3-pip \
+    libgl1-mesa-glx libgl1-mesa-dri mesa-utils \
+    mesa-vulkan-drivers vulkan-tools \
     && rm -rf /var/lib/apt/lists/* \
     && pip3 install --no-cache-dir --upgrade pip \
     && pip3 install --no-cache-dir "pycodestyle<2.9.0" "flake8<5.0.0" "autopep8<2.1.0"
 
-# 3. Создание пользователя и настройка прав
+# 3. User Creation and Privilege Assignment
 RUN groupadd --gid $USER_GID $USERNAME \
     && useradd --uid $USER_UID --gid $USER_GID -m $USERNAME \
-    && echo $USERNAME ALL=\(root\) NOPASSWD:ALL > /etc/sudoers.d/$USERNAME \
+    && echo "$USERNAME ALL=(root) NOPASSWD:ALL" > /etc/sudoers.d/$USERNAME \
     && chmod 0440 /etc/sudoers.d/$USERNAME \
-    && usermod -aG video,audio $USERNAME
+    && usermod -aG video,audio $USERNAME \
+    && (getent group render && usermod -aG render $USERNAME || true)
 
-# 4. Переключаемся на пользователя
+# 4. Workspace Initialization
 USER $USERNAME
-
-# 5. Настройка Workspace
 WORKDIR /home/$USERNAME/mona_ws
 
-# 6. Копируем код с правильными правами!
-# --chown гарантирует, что владельцем файлов станет mona_dev, а не root
+# 5. Source Code Migration
 COPY --chown=$USERNAME:$USER_GID src src
 COPY --chown=$USERNAME:$USER_GID configs configs
+COPY --chown=$USERNAME:$USER_GID scripts scripts
 
-# Настройка окружения ROS 2 и прав доступа к GPU
+# 6. Environment Sourcing
 RUN echo "source /opt/ros/humble/setup.bash" >> /home/${USERNAME}/.bashrc && \
-    echo "source /home/${USERNAME}/mona_ws/install/setup.bash" >> /home/${USERNAME}/.bashrc && \
-    echo 'if [ -d /dev/dri ]; then sudo chmod -R 777 /dev/dri > /dev/null 2>&1; fi' >> /home/${USERNAME}/.bashrc
+    echo "source /home/${USERNAME}/mona_ws/install/setup.bash" >> /home/${USERNAME}/.bashrc

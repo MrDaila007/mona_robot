@@ -1,65 +1,55 @@
-# Environment Setup
+# Environment Setup and Execution
 
 > **Environment as Code**
->
-> The development environment must be fully deterministic. The infrastructure is described in the `Dockerfile`.
+> 
+> The development environment must be fully deterministic. The infrastructure is described in the Dockerfile.
 
-## 1. Host requirements
+This document outlines the deployment procedure within an isolated Docker environment. The "Simulation First" approach guarantees identical development environments and minimizes host hardware dependencies.
 
-* OS: Linux (Ubuntu 22.04 recommended)
-* Docker Engine (version 24.0+)
-* Docker Compose Plugin
-* Git
+## 1. Prerequisites
+The project is fully containerized. The host machine must have the following software components installed:
+- Git
+- Docker Engine (v24.0 or higher)
+- Docker Compose (V2 plugin)
 
-## 2. Container architecture
-
-Base image: `ros:humble-ros-base`.
-
-**The image includes:**
-
-* ROS 2 Humble (core packages)
-* Build tools (`colcon`, `gcc`, `cmake`)
-* Linters and formatters (`uncrustify`, `cpplint`, `cppcheck`)
-* Project dependencies (installed via `rosdep`)
-
-## 3. Workspace layout
-
-```text
-MONA_ws/
-├── configs/            # Code quality configs
-├── docs/               # Documentation
-├── scripts/            # CI and ROS 2 launch scripts
-├── src/                # Package source code
-├── docker-compose.yml  # Orchestration and network parameters
-└── Dockerfile          # Image build description
-```
-
-## 4. Container lifecycle
-
-### First start
-
-For the first deployment or when `Dockerfile` / `package.xml` changes, you need a full rebuild:
-
+### 1.1. Setup for Linux (Ubuntu/Arch Linux)
+Install Docker Engine via the official convenience script:
 ```bash
-docker compose up -d --build
+curl -fsSL [https://get.docker.com](https://get.docker.com) -o get-docker.sh
+sudo sh get-docker.sh
+sudo usermod -aG docker $USER
+newgrp docker
+```
+_Note:_ Ensure that integrated graphics drivers (e.g., `mesa`) are installed on the host OS.
+
+### 1.2. Setup for Windows 11 (WSL2)
+1. Install Docker Desktop for Windows.
+2. Navigate to Settings -> Resources -> WSL Integration in Docker Desktop.
+3. Enable integration for your specific Ubuntu distribution (22.04 LTS).
+4. Restart Docker Desktop. No manual Docker installation is required inside the Ubuntu terminal.
+
+## 2. Repository Cloning
+```bash
+git clone git@github.com:vladubase/mona_robot.git
+cd mona_robot
 ```
 
-### Entering the environment
+## 3. Container Build and Execution
+For the initial deployment, or whenever `Dockerfile`/`docker-compose.yml` configurations are modified, a complete image rebuild is required:
+```bash
+docker compose build --no-cache
+docker compose up -d --force-recreate
+```
 
-All development commands (build, test, run) must be executed **only** inside the container:
+For subsequent executions, use:
+```bash
+docker compose up -d
+```
 
+## 4. Development and Testing
+All ROS 2 interactions and code compilation must be performed exclusively within the container:
 ```bash
 docker exec -it mona_dev bash
+
+./scripts/run_sim.bash
 ```
-
-### Environment variables
-
-Configuration is provided either via a `.env` file (if present) or directly in `docker-compose.yml`.
-
-### Hardware access
-
-The container runs in privileged mode (`privileged: true`) with host networking (`network_mode: host`) to ensure:
-
-1. Direct access to USB ports (Lidar, IMU, microcontrollers).
-2. Proper DDS (ROS 2 discovery) operation without NAT.
-
