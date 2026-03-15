@@ -18,9 +18,20 @@ RUN apt-get update && apt-get install -y software-properties-common curl sudo \
     ros-humble-laser-geometry ros-humble-tf2-sensor-msgs \
     ros-humble-rqt-graph ros-humble-rqt-common-plugins \
     ros-humble-robot-localization \
+    ros-humble-navigation2 ros-humble-nav2-bringup \
+    ros-humble-slam-toolbox \
+    ros-humble-pointcloud-to-laserscan \
     python3-pip \
     libgl1-mesa-glx libgl1-mesa-dri mesa-utils \
     mesa-vulkan-drivers vulkan-tools \
+    # Патч бага Ogre3D/Mesa: Динамический поиск и корректное исправление шейдера
+    && SHADER_FILE=$(find /opt/ros/humble -name "indexed_8bit_image.frag" | head -n 1) \
+    && if [ -n "$SHADER_FILE" ]; then \
+        sed -i '/#version/a #extension GL_ARB_shading_language_420pack : enable' "$SHADER_FILE" && \
+        sed -i 's/uniform sampler2D alpha_image;/layout(binding = 0) uniform sampler2D alpha_image;/g' "$SHADER_FILE" && \
+        sed -i 's/uniform sampler1D palette;/layout(binding = 1) uniform sampler1D palette;/g' "$SHADER_FILE"; \
+        echo "Shader patched successfully at $SHADER_FILE"; \
+    fi \
     && rm -rf /var/lib/apt/lists/* \
     && pip3 install --no-cache-dir --upgrade pip \
     && pip3 install --no-cache-dir "pycodestyle<2.9.0" "flake8<5.0.0" "autopep8<2.1.0"

@@ -27,6 +27,10 @@ find_package(geometry_msgs    REQUIRED)
 find_package(std_msgs         REQUIRED)
 find_package(std_srvs         REQUIRED)
 find_package(nav_msgs         REQUIRED)
+find_package(robot_localization REQUIRED)
+find_package(navigation2      REQUIRED)
+find_package(nav2_bringup     REQUIRED)
+find_package(slam_toolbox     REQUIRED)
 
 add_executable(safety_node src/safety_node.cpp)
 ament_target_dependencies(safety_node
@@ -50,7 +54,7 @@ install(
 )
 
 install(
-  DIRECTORY launch configs
+  DIRECTORY launch configs maps
   DESTINATION share/${PROJECT_NAME}
 )
 
