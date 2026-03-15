@@ -297,7 +297,14 @@ private:
             current_state_ = RobotState::DEGRADED;
             set_hardware_contactors(true);
         } else if (fdir_state == "NORMAL" && !e_stop_active_) {
-            current_state_ = RobotState::AUTONOMOUS;
+            // Если мы возвращаемся из состояния ошибки, сбрасываем статус в IDLE.
+            // При наличии свежих команд телеоператора или навигатора состояние
+            // автоматически переключится в MANUAL или AUTONOMOUS в watchdog_routine.
+            if (current_state_ == RobotState::PROTECTIVE_STOP ||
+                current_state_ == RobotState::DEGRADED)
+            {
+                current_state_ = RobotState::IDLE;
+            }
             set_hardware_contactors(true);
         }
     }

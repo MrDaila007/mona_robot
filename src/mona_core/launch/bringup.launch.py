@@ -27,12 +27,18 @@ import xacro
 def generate_launch_description():
     # Переменные и пути
     pkg_mona_description = get_package_share_directory('mona_description')
+    pkg_mona_core = get_package_share_directory('mona_core')
     pkg_ros_gz_sim = get_package_share_directory('ros_gz_sim')
 
     # Пути к файлам
     xacro_file = os.path.join(pkg_mona_description, 'urdf', 'mona.urdf.xacro')
     world_file = os.path.join(pkg_mona_description, 'worlds', 'warehouse.sdf')
     rviz_config_file = os.path.join(pkg_mona_description, 'rviz', 'mona.rviz')
+    ekf_config_path = os.path.join(
+        get_package_share_directory('mona_core'),
+        'configs',
+        'ekf.yaml'
+    )
 
     # Настройка окружения
     resource_env = SetEnvironmentVariable(
@@ -88,7 +94,7 @@ def generate_launch_description():
         arguments=[
             '/cmd_vel@geometry_msgs/msg/Twist]ignition.msgs.Twist',
             '/odom@nav_msgs/msg/Odometry[ignition.msgs.Odometry',
-            '/tf@tf2_msgs/msg/TFMessage[ignition.msgs.Pose_V',
+            # '/tf@tf2_msgs/msg/TFMessage[ignition.msgs.Pose_V',
             '/joint_states@sensor_msgs/msg/JointState[ignition.msgs.Model',
             '/clock@rosgraph_msgs/msg/Clock[ignition.msgs.Clock',
             '/lidar_front/scan@sensor_msgs/msg/LaserScan[ignition.msgs.LaserScan',
@@ -123,6 +129,14 @@ def generate_launch_description():
         parameters=[{'use_sim_time': use_sim_time}]
     )
 
+    fdir_manager = Node(
+        package='mona_core',
+        executable='fdir_manager.py',
+        name='mona_fdir_manager',
+        output='screen',
+        parameters=[{'use_sim_time': use_sim_time}]
+    )
+
     lidar_merger = LifecycleNode(
         package='mona_perception',
         executable='mona_perception_node',
@@ -132,20 +146,49 @@ def generate_launch_description():
         parameters=[{'use_sim_time': use_sim_time}]
     )
 
-    # lifecycle_manager = Node(
-    #     package='mona_core',
-    #     executable='lifecycle_manager.py',
-    #     name='mona_lifecycle_manager',
-    #     output='screen',
-    #     parameters=[{'use_sim_time': use_sim_time}]
-    # )
-
-    fdir_manager = Node(
-        package='mona_core',
-        executable='fdir_manager.py',
-        name='mona_fdir_manager',
+    # Конвертация объединенного облака точек (PointCloud2) в 2D скан (LaserScan) для SLAM
+    pointcloud_to_laserscan = Node(
+        package='pointcloud_to_laserscan',
+        executable='pointcloud_to_laserscan_node',
+        name='pointcloud_to_laserscan',
         output='screen',
-        parameters=[{'use_sim_time': use_sim_time}]
+        remappings=[
+            ('cloud_in', 'perception/combined_cloud'),
+            ('scan', 'scan')
+        ],
+        parameters=[{
+            'target_frame': 'base_footprint',
+            'transform_tolerance': 0.05,
+            'min_height': 0.1,        # Минимальная высота захвата точек (относительно base_link)
+            'max_height': 0.2,        # Максимальная высота захвата
+            'angle_min': -3.14159,    # -180 градусов
+            'angle_max': 3.14159,     # 180 градусов
+            'angle_increment': 0.0087,  # Шаг 0.5 градуса
+            'scan_time': 0.066,       # ~15 Гц
+            'range_min': 0.05,
+            'range_max': 40.0,
+            'use_inf': True,
+            'inf_epsilon': 1.0,
+            'use_sim_time': use_sim_time
+        }]
+    )
+
+    # Инициализация узла robot_localization
+    ekf_node = Node(
+        package='robot_localization',
+        executable='ekf_node',
+        name='ekf_filter_node',
+        output='screen',
+        parameters=[ekf_config_path, {'use_sim_time': True}],
+        remappings=[('/odometry/filtered', '/odom_filtered')]
+    )
+
+    # 6. Интеграция подсистемы SLAM
+    slam_launch = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(
+            os.path.join(pkg_mona_core, 'launch', 'slam.launch.py')
+        ),
+        launch_arguments={'use_sim_time': use_sim_time}.items(),
     )
 
     rosbag_record = ExecuteProcess(
@@ -171,7 +214,10 @@ def generate_launch_description():
         node_rviz,
         safety_node,
         lidar_merger,
+        pointcloud_to_laserscan,
         # lifecycle_manager,
         fdir_manager,
-        rosbag_record
+        rosbag_record,
+        ekf_node,
+        slam_launch
     ])

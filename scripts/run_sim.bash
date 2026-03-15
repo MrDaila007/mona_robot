@@ -31,6 +31,8 @@ NC='\033[0m'
 echo -e "${BLUE}[INFO] Initializing Mona Robot Simulation sequence...${NC}"
 
 # Graphic and Network Compatibility Overrides
+export MESA_GL_VERSION_OVERRIDE=4.6
+export MESA_GLSL_VERSION_OVERRIDE=460
 export QT_QPA_PLATFORM=xcb
 export GDK_BACKEND=x11
 export IGN_GAZEBO_RENDER_ENGINE_GUI=ogre
