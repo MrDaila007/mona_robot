@@ -50,5 +50,8 @@ docker compose up -d
 ```bash
 docker exec -it mona_dev bash
 
+# Ограничиваем DDS локальным интерфейсом во избежание сетевых коллизий
+export ROS_LOCALHOST_ONLY=1
+ros2 daemon stop && ros2 daemon start
 ./scripts/run_sim.bash
 ```

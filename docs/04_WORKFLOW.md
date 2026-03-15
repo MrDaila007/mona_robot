@@ -22,7 +22,21 @@ colcon build --symlink-install
 source install/setup.bash
 ```
 
-## 3. Локальная интеграция (Local CI)
+## 3. Отладка архитектуры (TF и Одометрия)
+При внесении изменений в `mona.urdf.xacro`, плагины Gazebo или `ekf.yaml`, обязательно проверяйте целостность данных:
+
+**Проверка пульса одометрии (Ground Truth):** Одометрия должна публиковаться с частотой 50 Гц.
+```bash
+ros2 topic hz /odom
+ros2 topic echo /odom
+```
+
+**Проверка целостности дерева TF:** Дерево должно иметь строгий вид `map -> odom -> base_footprint -> base_link`. Если карты не строятся или происходят "скачки", сгенерируйте PDF-отчет графа:
+```bash
+ros2 run tf2_tools view_frames
+```
+
+## 4. Локальная интеграция (Local CI)
 Перед созданием коммита запустите скрипт проверки качества:
 ```bash
 ./scripts/local_ci.bash
@@ -32,14 +46,14 @@ source install/setup.bash
 2. Линтинг (`cpplint`, `flake8`).
 3. Запуск тестов.
 
-## 4. Тестирование
+## 5. Тестирование
 Запуск модульных и интеграционных тестов:
 ```bash
 colcon test
 colcon test-result --verbose
 ```
 
-## 5. Управление зависимостями (rosdep)
+## 6. Управление зависимостями (rosdep)
 ### Зачем это нужно в C++?
 В отличие от Python, где зависимости изолируются в виртуальном окружении, C++ зависимости в ROS 2 - это **системные библиотеки** (заголовочные файлы `.hpp` и бинарные `.so` в `/usr/lib`).
 Когда вы добавляете `<depend>lifecycle_msgs</depend>` в `package.xml`, CMake не скачивает библиотеку сам. Он ожидает, что она уже установлена в системе. Утилита `rosdep`:
@@ -61,13 +75,12 @@ colcon test-result --verbose
 rosdep update && rosdep install --from-paths src --ignore-src -r -y
 ```
 
-## 6. Типичные проблемы (Troubleshooting)
-### WARNING: colcon.colcon_ros.prefix_path.ament
-* **Симптом:** Множество желтых предупреждений при сборке.
-* **Причина:** Вы удалили папки `build/install` в активном терминале.
-* **Решение:** Просто игнорируйте или перезапустите терминал.
-### CMake Error: ament_cmake_symlink_install_directory
-* **Симптом:** Ошибка копирования папок (launch, config).
-* **Причина:** В `CMakeLists.txt` указана папка, которой нет в проекте.
-* **Решение:** Удалите лишнюю строку `install(DIRECTORY ...)` в CMakeLists.txt.
+## 7. Типичные проблемы (Troubleshooting)
+## Карта застывает на 1 кадре (Lock on Chassis)
+- **Причина:** SLAM не получает данных об изменении положения (мертва одометрия или отвалился TF `odom -> base_footprint`).
+- **Решение:** Проверьте `ros2 topic echo /odom`. Если пусто — проверьте плагин `OdometryPublisher` в URDF. Убедитесь, что топик `/tf` **исключен** из моста `ros_gz_bridge`.
 
+## WARNING: colcon.colcon_ros.prefix_path.ament
+- **Симптом:** Множество желтых предупреждений при сборке.
+- **Причина:** Вы удалили папки `build/install` в активном терминале.
+- **Решение:** Просто игнорируйте или перезапустите терминал.
