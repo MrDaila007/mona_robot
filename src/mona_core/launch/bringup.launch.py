@@ -163,7 +163,7 @@ def generate_launch_description():
             'max_height': 0.2,        # Максимальная высота захвата
             'angle_min': -3.14159,    # -180 градусов
             'angle_max': 3.14159,     # 180 градусов
-            'angle_increment': 0.0087,# Шаг 0.5 градуса
+            'angle_increment': 0.0087,  # Шаг 0.5 градуса
             'scan_time': 0.066,       # ~15 Гц
             'range_min': 0.05,
             'range_max': 40.0,
