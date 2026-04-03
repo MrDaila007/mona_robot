@@ -69,7 +69,7 @@ find src -name "CMakeLists.txt" -exec sed -i 's/[[:space:]]*$//' {} +
 echo -e "${YELLOW}[2/4] Cleaning workspace (build, install, log)...${NC}"
 
 # Проверяем успешность очистки напрямую
-if ! rm -rf build/ install/ log/; then
+if ! rm -rf build/* install/* log/*; then
     echo -e "${RED}[ERROR] Failed to clean directories.${NC}"
     exit 1
 fi
@@ -98,8 +98,7 @@ else
 fi
 
 echo -e "${BLUE}[CI] Executing colcon test...${NC}"
-colcon test
-if [ $? -ne 0 ]; then
+if ! colcon test; then
     echo -e "${RED}[ERROR] Test execution failed at the framework level.${NC}"
     exit 1
 fi

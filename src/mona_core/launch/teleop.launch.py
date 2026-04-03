@@ -71,17 +71,17 @@ def generate_launch_description():
             executable='teleop_node',
             name='teleop_twist_joy_node',
             parameters=[{
-                'axis_linear':          {'x': AXIS_LEFT_X, 'y': AXIS_LEFT_Y},
-                'axis_angular':         {'yaw': AXIS_RIGHT_X},
+                'axis_linear': {'x': AXIS_LEFT_X, 'y': AXIS_LEFT_Y},
+                'axis_angular': {'yaw': AXIS_RIGHT_X},
 
-                'scale_linear':         {'x': 0.5, 'y': 0.5},
-                'scale_angular':        {'yaw': 0.5},
+                'scale_linear': {'x': 0.5, 'y': 0.5},
+                'scale_angular': {'yaw': 0.5},
 
-                'enable_button':        BTN_L2,
+                'enable_button': BTN_L2,
 
-                'enable_turbo_button':  BTN_R2,
-                'scale_linear_turbo':   {'x': 1.0, 'y': 1.0},
-                'scale_angular_turbo':  {'yaw': 1.0}
+                'enable_turbo_button': BTN_R2,
+                'scale_linear_turbo': {'x': 1.0, 'y': 1.0},
+                'scale_angular_turbo': {'yaw': 1.0}
             }],
             remappings=[
                 ('/cmd_vel', '/cmd_teleop')
