@@ -23,32 +23,79 @@ find_package(ament_cmake      REQUIRED)
 find_package(rclcpp           REQUIRED)
 find_package(rclcpp_lifecycle REQUIRED)
 find_package(lifecycle_msgs   REQUIRED)
+find_package(geometry_msgs    REQUIRED)
+find_package(std_msgs         REQUIRED)
 find_package(sensor_msgs      REQUIRED)
-find_package(laser_geometry   REQUIRED)
 find_package(tf2_ros          REQUIRED)
 find_package(tf2_sensor_msgs  REQUIRED)
+find_package(laser_geometry   REQUIRED)
 find_package(message_filters  REQUIRED)
+find_package(rclcpp_components REQUIRED)
 
-add_executable(mona_perception_node src/lidar_merger_node.cpp)
+include_directories(include)
 
-ament_target_dependencies(mona_perception_node
+# Сборка библиотеки компонента
+add_library(lidar_merger_component SHARED
+  src/lidar_merger_node.cpp
+)
+
+target_include_directories(lidar_merger_component PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:include>
+)
+
+ament_target_dependencies(lidar_merger_component
   rclcpp
   rclcpp_lifecycle
   lifecycle_msgs
+  geometry_msgs
+  std_msgs
   sensor_msgs
-  laser_geometry
   tf2_ros
   tf2_sensor_msgs
+  laser_geometry
   message_filters
+  rclcpp_components
+)
+
+# Регистрируем плагин в системе ROS 2
+rclcpp_components_register_node(lidar_merger_component
+  PLUGIN "mona_perception::LidarMergerNode"
+  EXECUTABLE lidar_merger_node_exe
+)
+
+# Сборка исполняемого файла (враппера)
+add_executable(lidar_merger_node src/main.cpp)
+
+target_link_libraries(lidar_merger_node lidar_merger_component)
+
+ament_target_dependencies(lidar_merger_node
+  rclcpp
+  rclcpp_lifecycle
+)
+
+# Установка (install)
+install(
+  TARGETS lidar_merger_component lidar_merger_node
+  ARCHIVE DESTINATION lib
+  LIBRARY DESTINATION lib/${PROJECT_NAME}
+  RUNTIME DESTINATION lib/${PROJECT_NAME}
 )
 
 install(
-  TARGETS mona_perception_node
-  DESTINATION lib/${PROJECT_NAME}
+  DIRECTORY   include/
+  DESTINATION include
 )
 
+install(
+  DIRECTORY   launch
+  DESTINATION share/${PROJECT_NAME}
+)
+
+# Тестирование и линтеры
 if(BUILD_TESTING)
   # 1. Используем ручной поиск конкретных пакетов (вместо ament_lint_auto)
+  find_package(ament_cmake_gtest      REQUIRED)
   find_package(ament_cmake_cppcheck   REQUIRED)
   find_package(ament_cmake_cpplint    REQUIRED)
   find_package(ament_cmake_uncrustify REQUIRED)
@@ -57,7 +104,19 @@ if(BUILD_TESTING)
   find_package(ament_cmake_copyright  REQUIRED)
   find_package(ament_cmake_flake8     REQUIRED)
 
-  # 2. Запускаем каждый линтер вручную
+  # 2. Сборка GTest
+  ament_add_gtest(test_lidar_merger test/test_lidar_merger.cpp)
+
+  target_link_libraries(test_lidar_merger lidar_merger_component)
+
+  ament_target_dependencies(test_lidar_merger
+    rclcpp
+    rclcpp_lifecycle
+    lifecycle_msgs
+    sensor_msgs
+  )
+
+  # 3. Запускаем линтеры
   # C++ статический анализ и стиль
   ament_cppcheck()
   ament_cpplint()

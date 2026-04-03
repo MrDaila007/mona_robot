@@ -63,14 +63,16 @@ public:
 
         // Читаем параметры
         this->declare_parameter("command_timeout", 0.5);
-        this->declare_parameter("manual_takeover_time", 2.0);
+        this->declare_parameter("manual_takeover_time", 5.0);
         this->declare_parameter("max_speed_normal", 1.0);
         this->declare_parameter("max_speed_degraded", 0.3);
+        this->declare_parameter("acceleration_alpha", 0.05);
 
-        cmd_timeout_        = this->get_parameter("command_timeout").as_double();
-        manual_timeout_     = this->get_parameter("manual_takeover_time").as_double();
-        max_speed_normal_   = this->get_parameter("max_speed_normal").as_double();
-        max_speed_degraded_ = this->get_parameter("max_speed_degraded").as_double();
+        cmd_timeout_             = this->get_parameter("command_timeout").as_double();
+        manual_timeout_          = this->get_parameter("manual_takeover_time").as_double();
+        max_speed_normal_        = this->get_parameter("max_speed_normal").as_double();
+        max_speed_degraded_      = this->get_parameter("max_speed_degraded").as_double();
+        teleop_smoothing_factor_ = this->get_parameter("acceleration_alpha").as_double();
 
         // Создаем группы коллбэков (Reentrant - параллельное выполнение)
         auto callback_group = this->create_callback_group(rclcpp::CallbackGroupType::Reentrant);
@@ -91,14 +93,14 @@ public:
         // --- ПОДПИСКИ --- //
         // Телеоператор (Высокий приоритет)
         sub_teleop_ = this->create_subscription<geometry_msgs::msg::Twist>(
-            "cmd_vel_teleop", 10,
+            "cmd_teleop", 10,
             std::bind(&SafetyNode::teleop_callback, this, std::placeholders::_1),
             sub_opts
         );
 
         // Навигация/Сервер (Средний приоритет)
         sub_nav_ = this->create_subscription<geometry_msgs::msg::Twist>(
-            "cmd_vel_nav", 10,
+            "cmd_nav", 10,
             std::bind(&SafetyNode::nav_callback, this, std::placeholders::_1),
             sub_opts
         );
@@ -149,6 +151,10 @@ public:
         current_state_    = RobotState::IDLE;
         last_teleop_time_ = this->now();
         last_nav_time_    = this->now();
+
+        // Сбрасываем цели и текущую скорость
+        target_cmd_vel_   = geometry_msgs::msg::Twist();
+        smoothed_cmd_vel_ = geometry_msgs::msg::Twist();
 
         if (!e_stop_active_) {set_hardware_contactors(true);}
 
@@ -267,7 +273,7 @@ private:
         // Логируем сообщения только при смене статуса
         std::string fdir_state    = msg->data;
         bool        state_changed = (fdir_state != last_fdir_state_);
-        last_fdir_state_ = fdir_state;
+        last_fdir_state_          = fdir_state;
 
         if (fdir_state == "SYSTEM_STARTUP") {
             current_state_ = RobotState::PROTECTIVE_STOP;
@@ -316,9 +322,7 @@ private:
         last_teleop_time_ = this->now();
         current_state_    = RobotState::MANUAL;
 
-        // Кэшируем команду для интерполяции
-        last_teleop_msg_ = *msg;
-        publish_velocity_clipped(*msg);
+        target_cmd_vel_ = *msg;
     }
 
     void nav_callback(const geometry_msgs::msg::Twist::SharedPtr msg) {
@@ -332,9 +336,7 @@ private:
         if (current_state_ != RobotState::PROTECTIVE_STOP) {
             current_state_ = RobotState::AUTONOMOUS;
 
-            // Кэшируем команду для интерполяции
-            last_nav_msg_ = *msg;
-            publish_velocity_clipped(*msg);
+            target_cmd_vel_ = *msg;
         }
     }
 
@@ -388,20 +390,33 @@ private:
             if (current_state_ != RobotState::PROTECTIVE_STOP) {
                 current_state_ = RobotState::IDLE;
             }
-            publish_stop();
+            // Если таймаут, плавно тормозим (цель = 0)
+            target_cmd_vel_ = geometry_msgs::msg::Twist();
             publish_status("NO_CMD_DATA");
-            return;
+        } else {
+            publish_status("ACTIVE");
         }
 
-        // CONTINUOUS REPUBLISHING (Интерполяция 100 Гц)
-        // Защищает от рывков, если джойстик отправляет данные редко
-        if (current_state_ == RobotState::MANUAL) {
-            publish_velocity_clipped(last_teleop_msg_);
-        } else if (current_state_ == RobotState::AUTONOMOUS) {
-            publish_velocity_clipped(last_nav_msg_);
+        // --- УМНАЯ МАРШРУТИЗАЦИЯ И СГЛАЖИВАНИЕ (100 Гц) ---
+        if (current_state_ == RobotState::AUTONOMOUS) {
+            // Автопилот (Nav2) имеет свой точный контроллер (TEB/MPPI/DWB). Пропускаем напрямую.
+            smoothed_cmd_vel_ = target_cmd_vel_;
+        } else {
+            // Для ручного управления (MANUAL) или при мягкой остановке (IDLE) применяем EMA-фильтр
+            smoothed_cmd_vel_.linear.x += teleop_smoothing_factor_ *
+                (target_cmd_vel_.linear.x - smoothed_cmd_vel_.linear.x);
+            smoothed_cmd_vel_.linear.y += teleop_smoothing_factor_ *
+                (target_cmd_vel_.linear.y - smoothed_cmd_vel_.linear.y);
+            smoothed_cmd_vel_.angular.z += teleop_smoothing_factor_ *
+                (target_cmd_vel_.angular.z - smoothed_cmd_vel_.angular.z);
+
+            // Чтобы робот не "полз" бесконечно из-за асимптоты фильтра, обнуляем микро-скорости
+            if (std::abs(smoothed_cmd_vel_.linear.x) < 0.001) {smoothed_cmd_vel_.linear.x = 0.0;}
+            if (std::abs(smoothed_cmd_vel_.linear.y) < 0.001) {smoothed_cmd_vel_.linear.y = 0.0;}
+            if (std::abs(smoothed_cmd_vel_.angular.z) < 0.001) {smoothed_cmd_vel_.angular.z = 0.0;}
         }
 
-        publish_status("ACTIVE");
+        publish_velocity_clipped(smoothed_cmd_vel_);
     }
 
     // --- VARIABLES --- //
@@ -420,8 +435,10 @@ private:
     rclcpp::Time last_teleop_time_;
     rclcpp::Time last_nav_time_;
 
-    geometry_msgs::msg::Twist last_teleop_msg_;
-    geometry_msgs::msg::Twist last_nav_msg_;
+    // Переменные для сглаживания (EMA-фильтр)
+    geometry_msgs::msg::Twist target_cmd_vel_;
+    geometry_msgs::msg::Twist smoothed_cmd_vel_;
+    double teleop_smoothing_factor_;
 
     RobotState current_state_;
     std::string last_fdir_state_ = "";
