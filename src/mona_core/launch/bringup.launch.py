@@ -17,8 +17,10 @@
 import os
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
-from launch.actions import IncludeLaunchDescription, SetEnvironmentVariable, ExecuteProcess
+from launch.actions import IncludeLaunchDescription, SetEnvironmentVariable, \
+    ExecuteProcess, DeclareLaunchArgument
 from launch.launch_description_sources import PythonLaunchDescriptionSource
+from launch.conditions import IfCondition
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node, LifecycleNode
 import xacro
@@ -26,8 +28,9 @@ import xacro
 
 def generate_launch_description():
     # Переменные и пути
-    pkg_mona_description = get_package_share_directory('mona_description')
     pkg_mona_core = get_package_share_directory('mona_core')
+    pkg_mona_description = get_package_share_directory('mona_description')
+    pkg_mona_perception = get_package_share_directory('mona_perception')
     pkg_ros_gz_sim = get_package_share_directory('ros_gz_sim')
 
     # Пути к файлам
@@ -39,6 +42,14 @@ def generate_launch_description():
         'configs',
         'ekf.yaml'
     )
+
+    # Геймпад
+    use_gamepad_arg = DeclareLaunchArgument(
+        'use_gamepad',
+        default_value='false',
+        description='Set to true to enable DualSense teleop.'
+    )
+    use_gamepad = LaunchConfiguration('use_gamepad')
 
     # Настройка окружения
     resource_env = SetEnvironmentVariable(
@@ -137,40 +148,11 @@ def generate_launch_description():
         parameters=[{'use_sim_time': use_sim_time}]
     )
 
-    lidar_merger = LifecycleNode(
-        package='mona_perception',
-        executable='mona_perception_node',
-        name='mona_lidar_merger',
-        namespace='',
-        output='screen',
-        parameters=[{'use_sim_time': use_sim_time}]
-    )
-
-    # Конвертация объединенного облака точек (PointCloud2) в 2D скан (LaserScan) для SLAM
-    pointcloud_to_laserscan = Node(
-        package='pointcloud_to_laserscan',
-        executable='pointcloud_to_laserscan_node',
-        name='pointcloud_to_laserscan',
-        output='screen',
-        remappings=[
-            ('cloud_in', 'perception/combined_cloud'),
-            ('scan', 'scan')
-        ],
-        parameters=[{
-            'target_frame': 'base_footprint',
-            'transform_tolerance': 0.05,
-            'min_height': 0.1,        # Минимальная высота захвата точек (относительно base_link)
-            'max_height': 0.2,        # Максимальная высота захвата
-            'angle_min': -3.14159,    # -180 градусов
-            'angle_max': 3.14159,     # 180 градусов
-            'angle_increment': 0.0087,  # Шаг 0.5 градуса
-            'scan_time': 0.066,       # ~15 Гц
-            'range_min': 0.05,
-            'range_max': 40.0,
-            'use_inf': True,
-            'inf_epsilon': 1.0,
-            'use_sim_time': use_sim_time
-        }]
+    perception_launch = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(
+            os.path.join(pkg_mona_perception, 'launch', 'perception.launch.py')
+        ),
+        launch_arguments={'use_sim_time': use_sim_time}.items(),
     )
 
     # Инициализация узла robot_localization
@@ -191,6 +173,22 @@ def generate_launch_description():
         launch_arguments={'use_sim_time': use_sim_time}.items(),
     )
 
+    # 7. Автономная навигация Nav2
+    navigation_launch = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(
+            os.path.join(pkg_mona_core, 'launch', 'navigation.launch.py')
+        ),
+        launch_arguments={'use_sim_time': use_sim_time}.items(),
+    )
+
+    # 8. Ручное управление (Геймпад)
+    teleop_launch = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(
+            os.path.join(pkg_mona_core, 'launch', 'teleop.launch.py')
+        ),
+        condition=IfCondition(use_gamepad)      # Запустится ТОЛЬКО если use_gamepad:=true
+    )
+
     rosbag_record = ExecuteProcess(
         cmd=[
             'ros2', 'bag', 'record',
@@ -206,6 +204,7 @@ def generate_launch_description():
 
     return LaunchDescription([
         resource_env,
+        use_gamepad_arg,
         color_env,
         node_robot_state_publisher,
         gz_sim,
@@ -213,11 +212,11 @@ def generate_launch_description():
         bridge,
         node_rviz,
         safety_node,
-        lidar_merger,
-        pointcloud_to_laserscan,
-        # lifecycle_manager,
+        perception_launch,
         fdir_manager,
         rosbag_record,
         ekf_node,
-        slam_launch
+        slam_launch,
+        navigation_launch,
+        teleop_launch
     ])

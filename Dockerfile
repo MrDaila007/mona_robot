@@ -9,11 +9,19 @@ ARG USER_GID=$USER_UID
 
 # 2. System and ROS 2 Dependencies Installation
 # Includes Kisak PPA for updated Mesa drivers required by modern Linux kernels
-RUN apt-get update && apt-get install -y software-properties-common curl sudo \
+RUN apt-get update && apt-get install -y \
+    software-properties-common curl sudo git \
     && add-apt-repository ppa:kisak/kisak-mesa -y \
     && apt-get update && apt-get install -y \
     build-essential cmake python3-colcon-common-extensions \
-    git \
+    # Инструменты контроля качества
+    clang-tidy clang-format-14 cppcheck lcov \
+    ros-humble-ament-cmake-clang-tidy \
+    ros-humble-ament-cmake-cppcheck \
+    ros-humble-ament-lint-auto \
+    ros-humble-ament-cmake-uncrustify \
+    ros-humble-ament-cmake-flake8 \
+    # Зависимости для робота
     ros-humble-xacro ros-humble-rviz2 ros-humble-ros-gz \
     ros-humble-laser-geometry ros-humble-tf2-sensor-msgs \
     ros-humble-rqt-graph ros-humble-rqt-common-plugins \
@@ -21,6 +29,7 @@ RUN apt-get update && apt-get install -y software-properties-common curl sudo \
     ros-humble-navigation2 ros-humble-nav2-bringup \
     ros-humble-slam-toolbox \
     ros-humble-pointcloud-to-laserscan \
+    ros-humble-joy ros-humble-teleop-twist-joy \
     python3-pip \
     libgl1-mesa-glx libgl1-mesa-dri mesa-utils \
     mesa-vulkan-drivers vulkan-tools \

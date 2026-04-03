@@ -75,4 +75,5 @@ echo -e "${GREEN}[READY] Launching mona_core bringup...${NC}"
 echo -e "${BLUE}Press Ctrl+C to terminate the simulation.${NC}"
 echo -e "${GREEN}=================================================${NC}"
 
-exec ros2 launch mona_core bringup.launch.py
+# exec ros2 launch mona_core bringup.launch.py
+exec ros2 launch mona_core bringup.launch.py use_gamepad:=true

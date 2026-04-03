@@ -3,6 +3,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      network: host
       args:
         USERNAME: ${USER:-mona_dev}
         USER_UID: ${UID:-1000}
@@ -21,6 +22,8 @@ services:
       - QT_QPA_PLATFORM=xcb
       - ALSOFT_DRIVERS=null
       - MESA_DEBUG=silent
+      - ROS_LOCALHOST_ONLY=1
+      - RMW_IMPLEMENTATION=rmw_fastrtps_cpp
     
     volumes:
       - ./src:/home/${USER:-mona_dev}/mona_ws/src
@@ -28,6 +31,8 @@ services:
       - ./configs:/home/${USER:-mona_dev}/mona_ws/configs
       - /tmp/.X11-unix:/tmp/.X11-unix:rw
       - ~/.Xauthority:/home/${USER:-mona_dev}/.Xauthority:rw
+      - /dev/input:/dev/input:ro
+      - /run/udev:/run/udev:ro
     
     devices:
       - /dev/dri:/dev/dri

@@ -32,7 +32,6 @@ echo -e "${BLUE}[INFO] Starting Local Continuous Integration sequence...${NC}"
 # ------------------------------------------------------------------------------
 # 0. Pre-flight Check
 # ------------------------------------------------------------------------------
-# Check if we are in the workspace root by looking for the 'src' directory.
 if [ ! -d "src" ]; then
     echo -e "${RED}[ERROR] Directory 'src' not found.${NC}"
     echo "Please run this script from the root of your ROS 2 workspace."
@@ -57,8 +56,7 @@ if command -v autopep8 &> /dev/null; then
     autopep8 --in-place --recursive --max-line-length 120 src/
     echo -e "${GREEN}[OK] Python formatted.${NC}"
 else
-    # Если autopep8 не в PATH, попробуем запустить через python3 -m
-    python3 -m autopep8 --in-place --recursive --global-config configs/setup.cfg src/
+    python3 -m autopep8 --in-place --recursive --global-config configs/setup.cfg src/ > /dev/null 2>&1 || true
     echo -e "${GREEN}[OK] Python formatted (via module).${NC}"
 fi
 
@@ -71,7 +69,7 @@ find src -name "CMakeLists.txt" -exec sed -i 's/[[:space:]]*$//' {} +
 echo -e "${YELLOW}[2/4] Cleaning workspace (build, install, log)...${NC}"
 
 # Проверяем успешность очистки напрямую
-if ! rm -rf build/ install/ log/; then
+if ! rm -rf build/* install/* log/*; then
     echo -e "${RED}[ERROR] Failed to clean directories.${NC}"
     exit 1
 fi
@@ -88,11 +86,10 @@ if ! colcon build --cmake-clean-cache --symlink-install; then
 fi
 
 # ------------------------------------------------------------------------------
-# 4. Run Tests
+# 4. Run Tests & Verify
 # ------------------------------------------------------------------------------
 echo -e "${YELLOW}[4/4] Running tests...${NC}"
 
-# Source the newly built workspace to ensure tests see the environment
 if [ -f "install/setup.bash" ]; then
     source install/setup.bash
 else
@@ -100,19 +97,14 @@ else
     exit 1
 fi
 
-# Execute tests
+echo -e "${BLUE}[CI] Executing colcon test...${NC}"
 if ! colcon test; then
-    echo -e "${RED}[ERROR] Failed to execute test runner.${NC}"
+    echo -e "${RED}[ERROR] Test execution failed at the framework level.${NC}"
     exit 1
 fi
 
-# ------------------------------------------------------------------------------
-# 5. Verify Results
-# ------------------------------------------------------------------------------
-echo -e "${YELLOW}Verifying test results...${NC}"
-
-# 'colcon test-result' returns a non-zero exit code if any test failed
-if colcon test-result --verbose; then
+echo -e "${BLUE}[CI] Validating XML Test Results...${NC}"
+if colcon test-result --all --verbose; then
     echo -e "${GREEN}====================================================${NC}"
     echo -e "${GREEN}[SUCCESS] All checks passed. Build and Tests are OK.${NC}"
     echo -e "${GREEN}====================================================${NC}"
@@ -125,7 +117,7 @@ if colcon test-result --verbose; then
     exit 0
 else
     echo -e "${RED}=================================================${NC}"
-    echo -e "${RED}[FAILURE] Tests failed. See details above.${NC}"
+    echo -e "${RED}[FAILURE] One or more tests failed. See details above.${NC}"
     echo -e "${RED}=================================================${NC}"
     
     echo -e "\n${YELLOW}[!] Please fix the linting or logic errors before committing.${NC}"
