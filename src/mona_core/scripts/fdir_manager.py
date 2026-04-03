@@ -31,6 +31,7 @@ from std_msgs.msg import Bool, String
 from lifecycle_msgs.srv import ChangeState, GetState
 from lifecycle_msgs.msg import Transition, State
 from ament_index_python.packages import get_package_share_directory
+from rclpy.qos import QoSProfile, DurabilityPolicy, ReliabilityPolicy
 
 # Цвета для вывода в консоль
 COLOR_BLUE = '\033[94m'
@@ -209,7 +210,16 @@ class FDIRManager(Node):
         self.timeout_reboot = params.get('timeout_before_reboot', 60.0)
 
         self.health_state_pub = self.create_publisher(String, '/system/health_state', 10)
-        self.emergency_contactor_pub = self.create_publisher(Bool, '/hardware/contactor_cmd', 10)
+        qos_profile = QoSProfile(
+            depth=1,
+            reliability=ReliabilityPolicy.RELIABLE,
+            durability=DurabilityPolicy.TRANSIENT_LOCAL
+        )
+        self.emergency_contactor_pub = self.create_publisher(
+            Bool,
+            '/hardware/contactor_cmd',
+            qos_profile
+        )
 
         self.components = {}
         components_config = params.get('components', {})

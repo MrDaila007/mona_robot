@@ -44,8 +44,10 @@ target_include_directories(lidar_merger_component PUBLIC
   $<INSTALL_INTERFACE:include>
 )
 
+# Линкуем зависимости
 ament_target_dependencies(lidar_merger_component
   rclcpp
+  rclcpp_components
   rclcpp_lifecycle
   lifecycle_msgs
   geometry_msgs
@@ -55,30 +57,19 @@ ament_target_dependencies(lidar_merger_component
   tf2_sensor_msgs
   laser_geometry
   message_filters
-  rclcpp_components
 )
 
 # Регистрируем плагин в системе ROS 2
 rclcpp_components_register_node(lidar_merger_component
   PLUGIN "mona_perception::LidarMergerNode"
-  EXECUTABLE lidar_merger_node_exe
-)
-
-# Сборка исполняемого файла (враппера)
-add_executable(lidar_merger_node src/main.cpp)
-
-target_link_libraries(lidar_merger_node lidar_merger_component)
-
-ament_target_dependencies(lidar_merger_node
-  rclcpp
-  rclcpp_lifecycle
+  EXECUTABLE lidar_merger_node
 )
 
 # Установка (install)
 install(
   TARGETS lidar_merger_component lidar_merger_node
   ARCHIVE DESTINATION lib
-  LIBRARY DESTINATION lib/${PROJECT_NAME}
+  LIBRARY DESTINATION lib
   RUNTIME DESTINATION lib/${PROJECT_NAME}
 )
 
@@ -105,7 +96,7 @@ if(BUILD_TESTING)
   find_package(ament_cmake_flake8     REQUIRED)
 
   # 2. Сборка GTest
-  ament_add_gtest(test_lidar_merger test/test_lidar_merger.cpp)
+  ament_add_gtest(test_lidar_merger test/test_lifecycle_instantiation.cpp)
 
   target_link_libraries(test_lidar_merger lidar_merger_component)
 

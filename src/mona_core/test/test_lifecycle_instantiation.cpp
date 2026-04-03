@@ -19,10 +19,11 @@
 #include "rclcpp/rclcpp.hpp"
 #include "lifecycle_msgs/msg/state.hpp"
 #include "lifecycle_msgs/msg/transition.hpp"
-#include "mona_perception/lidar_merger_node.hpp"
+
+#include "mona_core/safety_node.hpp"
 
 // Тестовый стенд (Fixture) для инициализации окружения ROS 2
-class TestLidarMerger : public ::testing::Test {
+class TestSafety : public ::testing::Test {
 protected:
     static void SetUpTestSuite() {
         rclcpp::init(0, nullptr);
@@ -34,9 +35,9 @@ protected:
 };
 
 // Test 1: Проверка инициализации и переходов жизненного цикла (lifecycle)
-TEST_F(TestLidarMerger, LifecycleTransition) {
+TEST_F(TestSafety, LifecycleTransition) {
     rclcpp::NodeOptions options;
-    auto node = std::make_shared<mona_perception::LidarMergerNode>(options);
+    auto node = std::make_shared<mona_core::SafetyNode>(options);
 
     // Проверяем начальное состояние (UNCONFIGURED)
     EXPECT_EQ(
@@ -45,7 +46,7 @@ TEST_F(TestLidarMerger, LifecycleTransition) {
     );
 
     // Вызываем on_configure()
-    // Это проверяет выделение памяти под tf2_buffer и message_filters
+    // Это проверяет выделение памяти
     auto state_after_configure = node->trigger_transition(
         lifecycle_msgs::msg::Transition::TRANSITION_CONFIGURE);
 
