@@ -43,7 +43,6 @@ using CallbackReturn = rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface
 
 class LidarMergerNode : public rclcpp_lifecycle::LifecycleNode {
 public:
-    // Конструктор компонента обязан принимать NodeOptions
     explicit LidarMergerNode(const rclcpp::NodeOptions &options);
     virtual ~LidarMergerNode();
 

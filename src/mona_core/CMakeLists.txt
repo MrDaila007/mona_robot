@@ -22,44 +22,71 @@ endif()
 find_package(ament_cmake      REQUIRED)
 find_package(rclcpp           REQUIRED)
 find_package(rclcpp_lifecycle REQUIRED)
+find_package(rclcpp_components REQUIRED)
 find_package(lifecycle_msgs   REQUIRED)
 find_package(geometry_msgs    REQUIRED)
+find_package(sensor_msgs      REQUIRED)
 find_package(std_msgs         REQUIRED)
 find_package(std_srvs         REQUIRED)
 find_package(nav_msgs         REQUIRED)
-find_package(robot_localization REQUIRED)
-find_package(navigation2      REQUIRED)
-find_package(nav2_bringup     REQUIRED)
-find_package(slam_toolbox     REQUIRED)
 
-add_executable(safety_node src/safety_node.cpp)
-ament_target_dependencies(safety_node
+include_directories(include)
+
+# Сборка библиотеки компонента
+add_library(safety_node_component SHARED
+  src/safety_node.cpp
+)
+
+target_include_directories(safety_node_component PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:include>
+)
+
+# Линкуем зависимости
+ament_target_dependencies(safety_node_component
   rclcpp
+  rclcpp_components
   rclcpp_lifecycle
   lifecycle_msgs
   geometry_msgs
   std_msgs
-  std_srvs
   nav_msgs
+  std_srvs
+)
+
+# Регистрируем плагин в системе ROS 2
+rclcpp_components_register_node(safety_node_component
+  PLUGIN "mona_core::SafetyNode"
+  EXECUTABLE safety_node
+)
+
+# Установка (install)
+install(
+  TARGETS safety_node_component safety_node
+  ARCHIVE DESTINATION lib
+  LIBRARY DESTINATION lib
+  RUNTIME DESTINATION lib/${PROJECT_NAME}
 )
 
 install(
-  TARGETS safety_node
+  DIRECTORY   include/
+  DESTINATION include
+)
+
+install(
+  PROGRAMS    scripts/fdir_manager.py
   DESTINATION lib/${PROJECT_NAME}
 )
 
 install(
-  PROGRAMS scripts/fdir_manager.py
-  DESTINATION lib/${PROJECT_NAME}
-)
-
-install(
-  DIRECTORY launch configs maps
+  DIRECTORY   launch configs maps
   DESTINATION share/${PROJECT_NAME}
 )
 
+# Тестирование и линтеры
 if(BUILD_TESTING)
   # 1. Используем ручной поиск конкретных пакетов (вместо ament_lint_auto)
+  find_package(ament_cmake_gtest      REQUIRED)
   find_package(ament_cmake_cppcheck   REQUIRED)
   find_package(ament_cmake_cpplint    REQUIRED)
   find_package(ament_cmake_uncrustify REQUIRED)
@@ -68,7 +95,19 @@ if(BUILD_TESTING)
   find_package(ament_cmake_copyright  REQUIRED)
   find_package(ament_cmake_flake8     REQUIRED)
 
-  # 2. Запускаем каждый линтер вручную
+  # 2. Сборка GTest
+  ament_add_gtest(test_safety test/test_lifecycle_instantiation.cpp)
+
+  target_link_libraries(test_safety safety_node_component)
+
+  ament_target_dependencies(test_safety
+    rclcpp
+    rclcpp_lifecycle
+    lifecycle_msgs
+    sensor_msgs
+  )
+
+  # 3. Запускаем линтеры
   # C++ статический анализ и стиль
   ament_cppcheck()
   ament_cpplint()
