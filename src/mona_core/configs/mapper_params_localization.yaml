@@ -6,8 +6,10 @@ slam_toolbox:
     map_frame: map
     base_frame: base_footprint
     scan_topic: /scan
-    
-    mode: mapping
+
+    mode: localization
+    map_file_name: /home/vladubase/mona_ws/src/mona_core/maps/warehouse_map_serialized
+    map_start_pose: [0.0, 0.0, 0.0]
 
     # Настройки разрешения и обновления
     map_resolution: 0.05

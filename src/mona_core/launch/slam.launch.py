@@ -31,7 +31,7 @@ def generate_launch_description():
     use_sim_time = LaunchConfiguration('use_sim_time', default='true')
     slam_params_file = LaunchConfiguration(
         'slam_params_file',
-        default=os.path.join(mona_core_dir, 'configs', 'mapper_params_online_async.yaml')
+        default=os.path.join(mona_core_dir, 'configs', 'mapper_params_localization.yaml')
     )
 
     # Декларация аргументов
@@ -50,7 +50,7 @@ def generate_launch_description():
     # Интеграция стандартного launch-файла slam_toolbox
     start_slam_toolbox_cmd = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
-            os.path.join(slam_toolbox_dir, 'launch', 'online_async_launch.py')
+            os.path.join(slam_toolbox_dir, 'launch', 'localization_launch.py')
         ),
         launch_arguments={
             'use_sim_time': use_sim_time,
