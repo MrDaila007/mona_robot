@@ -143,28 +143,35 @@ def generate_launch_description():
 #    )
 
     # 6. ZERO-COPY COMPONENT CONTAINER
-    # Запускаем мультипоточный контейнер, в который загрузим C++ плагины
-    core_container = ComposableNodeContainer(
+    # Запускаем мультипоточный контейнер, в который загружаем C++ плагины
+    mona_core_container = ComposableNodeContainer(
         name='mona_core_container',
         namespace='',
         package='rclcpp_components',
         executable='component_container_mt',    # mt = Multi-Threaded
         output='screen',
         composable_node_descriptions=[
+            # Модуль безопасности
+            ComposableNode(
+                package='mona_safety',
+                plugin='mona_safety::SafetyNode',
+                name='safety_node',
+                parameters=[{'use_sim_time': use_sim_time}]
+            ),
             # Модуль слияния лидаров
             ComposableNode(
                 package='mona_perception',
                 plugin='mona_perception::LidarMergerNode',
                 name='mona_lidar_merger',
-                parameters=[{'use_sim_time': use_sim_time}],
+                parameters=[{'use_sim_time': use_sim_time}]
             ),
-            # Модуль безопасности
+            # Модуль управления
             ComposableNode(
-                package='mona_core',
-                plugin='mona_core::SafetyNode',
-                name='safety_node',
-                parameters=[{'use_sim_time': use_sim_time}],
-            )
+                package='mona_control',
+                plugin='mona_control::TwistMuxNode',
+                name='twist_mux_node',
+                parameters=[{'use_sim_time': use_sim_time}]
+            ),
         ]
     )
 
@@ -242,8 +249,7 @@ def generate_launch_description():
         spawn_entity,
         bridge,
         node_rviz,
-        # safety_node,
-        core_container,
+        mona_core_container,
         perception_launch,
         fdir_manager,
         rosbag_record,

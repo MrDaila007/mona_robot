@@ -19,7 +19,16 @@ fdir_manager:
         tier:             "FATAL"
         node_name:        "safety_node"
         power_topic:      "/hardware/power/safety_mcu"
-        startup_time:     1.0       
+        startup_time:     1.0       # [сек]
+      # Диспетчер управления (Twist Mux)
+      control_mux:
+        enabled:          true
+        tier:             "FATAL"
+        node_name:        "twist_mux_node"
+        power_topic:      "/hardware/power/twist_mux"
+        startup_time:     1.0       # [сек]
+      
+      # --- TIER_PRIMARY --- #
       # Модуль восприятия (Сборка всех лидаров в одно облако)
       perception_merger:
         enabled:          true
@@ -27,9 +36,8 @@ fdir_manager:
         node_name:        "mona_lidar_merger"
         power_topic:      "/hardware/power/perception_pc"
         fallback_action:  "drive_blind"
-        startup_time:     2.0
-      
-      # --- TIER_PRIMARY --- #
+        startup_time:     2.0       # [сек]
+      # Лидар передний
       lidar_front:
         enabled:          false
         tier:             "PRIMARY"
@@ -39,27 +47,31 @@ fdir_manager:
         startup_time:     40.0      # [сек] Долгая загрузка Linux внутри лидара
       
       # --- TIER_AUXILIARY --- #
+      # Лидар задний
       lidar_back:
         enabled:          false
         tier:             "AUXILIARY"
         node_name:        "mona_lidar_back"
         power_topic:      "/hardware/power/lidar_back"
         startup_time:     40.0      # [сек]
+      # Лидар левый
       lidar_left:
         enabled:          false
         tier:             "AUXILIARY"
         node_name:        "mona_lidar_left"
         power_topic:      "/hardware/power/lidar_left"
         startup_time:     40.0      # [сек]
+      # Лидар правый
       lidar_right:
         enabled:          false
         tier:             "AUXILIARY"
         node_name:        "mona_lidar_right"
         power_topic:      "/hardware/power/lidar_right"
         startup_time:     40.0      # [сек]
+      # IMU сенсор
       imu_sensor:
         enabled:          false
         tier:             "AUXILIARY"
         node_name:        "mona_imu"
         power_topic:      "/hardware/power/imu"
-        startup_time:     1.0       # [сек] 
+        startup_time:     1.0       # [сек]

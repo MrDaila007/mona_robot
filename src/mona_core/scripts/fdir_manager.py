@@ -85,15 +85,24 @@ class MonitoredComponent:
         self.last_wakeup_try_time = 0.0
 
         self.pending_state_future = None
+        self.pending_change_future = None
         self.last_known_state = None
 
     def update_state_async(self):
+        # Если мы уже ждём ответа на изменение состояния (ChangeState),
+        # то не спамим систему запросами GetState
+        if self.pending_change_future is not None:
+            if self.pending_change_future.done():
+                self.pending_change_future = None
+            return
+
         if self.pending_state_future is not None:
             if self.pending_state_future.done():
                 try:
                     res = self.pending_state_future.result()
                     self.last_known_state = res.current_state.id
-                except Exception:
+                except Exception as e:
+                    self.node_ref.get_logger().error(f"[{self.name}] GetState Error: {e}")
                     self.last_known_state = None
                 self.pending_state_future = None
             return
@@ -177,17 +186,21 @@ class MonitoredComponent:
 
     def send_wakeup_request(self):
         if not self.change_state_client.service_is_ready():
+            # Если сервис не готов, мы физически не можем отправить запрос
             return
 
         req = ChangeState.Request()
         if self.last_known_state == State.PRIMARY_STATE_UNCONFIGURED:
             req.transition.id = Transition.TRANSITION_CONFIGURE
+            self.node_ref.get_logger().info(f"[{self.name}] Sending CONFIG transition...")
         elif self.last_known_state == State.PRIMARY_STATE_INACTIVE:
             req.transition.id = Transition.TRANSITION_ACTIVATE
+            self.node_ref.get_logger().info(f"[{self.name}] Sending ACTIVATE transition...")
         else:
             return
 
-        self.change_state_client.call_async(req)
+        # Сохраняем Future, чтобы сборщик мусора не убил запрос
+        self.pending_change_future = self.change_state_client.call_async(req)
 
 
 class FDIRManager(Node):

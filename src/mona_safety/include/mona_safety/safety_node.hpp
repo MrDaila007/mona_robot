@@ -1,0 +1,93 @@
+// Copyright 2026 vladubase
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+
+#ifndef MONA_SAFETY__SAFETY_NODE_HPP_
+#define MONA_SAFETY__SAFETY_NODE_HPP_
+
+#include <atomic>
+#include <memory>
+#include <string>
+
+#include "rclcpp/rclcpp.hpp"
+#include "rclcpp_lifecycle/lifecycle_node.hpp"
+#include "geometry_msgs/msg/twist.hpp"
+#include "nav_msgs/msg/odometry.hpp"
+#include "std_msgs/msg/string.hpp"
+#include "std_srvs/srv/trigger.hpp"
+#include "diagnostic_updater/diagnostic_updater.hpp"
+
+namespace mona_safety
+{
+using CallbackReturn = rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn;
+
+enum class SafetyState {
+    NORMAL,
+    DEGRADED,  // Проблемы с производительностью (медленный режим)
+    PROTECTIVE_STOP,  // Стоим, ждём ребута PRIMARY Узла
+    EMERGENCY  // E-STOP активен
+};
+
+class SafetyNode : public rclcpp_lifecycle::LifecycleNode {
+public:
+    explicit SafetyNode(const rclcpp::NodeOptions &options);
+    ~SafetyNode();
+
+protected:
+    CallbackReturn on_configure(const rclcpp_lifecycle::State &state) override;
+    CallbackReturn on_activate(const rclcpp_lifecycle::State &state) override;
+    CallbackReturn on_deactivate(const rclcpp_lifecycle::State &state) override;
+    CallbackReturn on_cleanup(const rclcpp_lifecycle::State &state) override;
+    CallbackReturn on_shutdown(const rclcpp_lifecycle::State &state) override;
+    CallbackReturn on_error(const rclcpp_lifecycle::State &state) override;
+
+private:
+    void smoothed_vel_callback(const geometry_msgs::msg::Twist::SharedPtr msg);
+    void health_state_callback(const std_msgs::msg::String::SharedPtr msg);
+    void mux_status_callback(const std_msgs::msg::String::SharedPtr msg);
+    void odom_callback(const nav_msgs::msg::Odometry::SharedPtr msg);
+    void estop_callback(
+        const std::shared_ptr<std_srvs::srv::Trigger::Request> request,
+        std::shared_ptr<std_srvs::srv::Trigger::Response> response);
+
+    void set_hardware_contactors(bool enable);
+    void publish_stop();
+    void publish_global_status();
+    void produce_diagnostics(diagnostic_updater::DiagnosticStatusWrapper &stat);
+
+    rclcpp::Subscription<geometry_msgs::msg::Twist>::SharedPtr smooth_sub_;
+    rclcpp::Subscription<std_msgs::msg::String>::SharedPtr health_sub_;
+    rclcpp::Subscription<std_msgs::msg::String>::SharedPtr mux_status_sub_;
+    rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odom_sub_;
+
+    rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr srv_estop_;
+    rclcpp_lifecycle::LifecyclePublisher<geometry_msgs::msg::Twist>::SharedPtr motor_pub_;
+    rclcpp_lifecycle::LifecyclePublisher<std_msgs::msg::String>::SharedPtr robot_status_pub_;
+    diagnostic_updater::Updater diagnostic_updater_;
+
+    // Безопасные состояние по умолчанию
+    SafetyState current_state_   = SafetyState::PROTECTIVE_STOP;
+    std::string last_fdir_state_ = "INIT";
+    std::string last_mux_status_ = "IDLE";
+
+    std::atomic<bool> e_stop_active_{false};
+    std::atomic<bool> is_processing_allowed_{false};
+    bool hardware_contactors_closed_ = false;
+
+    double max_speed_normal_;
+    double max_speed_degraded_;
+};
+}  // namespace mona_safety
+
+#endif  // MONA_SAFETY__SAFETY_NODE_HPP_

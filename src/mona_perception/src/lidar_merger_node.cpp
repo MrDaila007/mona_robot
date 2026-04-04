@@ -24,10 +24,11 @@
 
 namespace mona_perception
 {
-LidarMergerNode::LidarMergerNode(const rclcpp::NodeOptions &options) : rclcpp_lifecycle::
-                                                                       LifecycleNode(
-                                                                           "mona_lider_merger",
-                                                                           options) {}
+LidarMergerNode::LidarMergerNode(const rclcpp::NodeOptions &options)
+    : rclcpp_lifecycle::
+      LifecycleNode(
+          "mona_lider_merger",
+          options) {}
 
 LidarMergerNode::~LidarMergerNode() {}
 
