@@ -77,16 +77,16 @@ fi
 # ------------------------------------------------------------------------------
 # 3. Build Packages
 # ------------------------------------------------------------------------------
-echo -e "${YELLOW}[3/4] Building packages...${NC}"
+echo -e "${YELLOW}[3/4] Building packages (with coverage enabled)...${NC}"
 
-# Проверяем успешность сборки напрямую
-if ! colcon build --cmake-clean-cache --symlink-install; then
+if ! colcon build --cmake-clean-cache --symlink-install \
+  --cmake-args -DCMAKE_CXX_FLAGS="--coverage" -DCMAKE_C_FLAGS="--coverage" -DCMAKE_EXE_LINKER_FLAGS="--coverage"; then
     echo -e "${RED}[ERROR] Build failed.${NC}"
     exit 1
 fi
 
 # ------------------------------------------------------------------------------
-# 4. Run Tests & Verify
+# 4. Run Tests
 # ------------------------------------------------------------------------------
 echo -e "${YELLOW}[4/4] Running tests...${NC}"
 
@@ -98,12 +98,39 @@ else
 fi
 
 echo -e "${BLUE}[CI] Executing colcon test...${NC}"
-if ! colcon test; then
-    echo -e "${RED}[ERROR] Test execution failed at the framework level.${NC}"
-    exit 1
+# Убираем жесткий exit 1. Мы хотим собрать coverage даже если какие-то тесты упали!
+colcon test || echo -e "${YELLOW}[WARN] Some tests failed during execution. Proceeding to report generation...${NC}"
+
+# ------------------------------------------------------------------------------
+# 5. Generate Coverage Report
+# ------------------------------------------------------------------------------
+echo -e "${BLUE}[CI] Generating Test Coverage Report...${NC}"
+
+if command -v lcov &> /dev/null; then
+    # Собираем данные. Направляем вывод в /dev/null, чтобы не спамить в консоль
+    lcov --capture --directory build --output-file build/coverage.info > /dev/null 2>&1
+    
+    # Фильтруем системные либы и тесты, оставляем только исходный код
+    lcov --remove build/coverage.info '/usr/*' '/opt/ros/*' '*/install/*' '*/test/*' '*/build/*' --output-file build/coverage.info > /dev/null 2>&1
+    
+    echo -e "${GREEN}[OK] Coverage report generated at build/coverage.info${NC}"
+    
+    # --- ВЫВОД КРАСИВОЙ ТАБЛИЦЫ В ТЕРМИНАЛ ---
+    echo -e "${YELLOW}\n================================================================================${NC}"
+    echo -e "${YELLOW}                             TEST COVERAGE SUMMARY                              ${NC}"
+    echo -e "${YELLOW}================================================================================${NC}"
+    lcov --list build/coverage.info
+    echo -e "${YELLOW}================================================================================\n${NC}"
+else
+    echo -e "${RED}[WARN] lcov not found. Skipping coverage report.${NC}"
 fi
 
+# ------------------------------------------------------------------------------
+# 6. Validate Results and Exit
+# ------------------------------------------------------------------------------
 echo -e "${BLUE}[CI] Validating XML Test Results...${NC}"
+
+# Эта команда проверит реальные XML отчеты и вернет 1, если были ошибки тестов/линтеров
 if colcon test-result --all --verbose; then
     echo -e "${GREEN}====================================================${NC}"
     echo -e "${GREEN}[SUCCESS] All checks passed. Build and Tests are OK.${NC}"
