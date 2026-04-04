@@ -89,6 +89,6 @@ private:
     std::shared_ptr<message_filters::Synchronizer<SyncPolicy>> sync_;
     rclcpp_lifecycle::LifecyclePublisher<sensor_msgs::msg::PointCloud2>::SharedPtr publisher_;
 };
-}   // namespace mona_perception
+}  // namespace mona_perception
 
 #endif  // MONA_PERCEPTION__LIDAR_MERGER_NODE_HPP_

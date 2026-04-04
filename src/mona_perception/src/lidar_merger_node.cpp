@@ -73,7 +73,7 @@ CallbackReturn LidarMergerNode::on_configure(const rclcpp_lifecycle::State &) {
 
 // 2. ACTIVATE: Включаем паблишер
 CallbackReturn LidarMergerNode::on_activate(const rclcpp_lifecycle::State &state) {
-    (void)state;        // Подавляем предупреждение о неиспользуемом параметре
+    (void)state;  // Подавляем предупреждение о неиспользуемом параметре
     RCLCPP_INFO(get_logger(), "Activating Lidar Merger Component...");
 
     // В Lifecycle нодах паблишер по умолчанию заглушен.
@@ -129,7 +129,7 @@ CallbackReturn LidarMergerNode::on_error(const rclcpp_lifecycle::State &previous
     // Очищаем ресурсы, если нужно
     publisher_.reset();
 
-    return CallbackReturn::FAILURE;     // Переводим ноду в state FINALIZED (смерть)
+    return CallbackReturn::FAILURE;  // Переводим ноду в state FINALIZED (смерть)
 }
 
 void LidarMergerNode::power_callback(const std_msgs::msg::Bool::SharedPtr msg) {
@@ -151,7 +151,7 @@ void LidarMergerNode::fused_callback(
         return;
     }
     if (!has_power_) {
-        return;     // Имитируем отсутствие питания - дропаем все данные!
+        return;  // Имитируем отсутствие питания - дропаем все данные!
     }
 
     auto combined_cloud = std::make_shared<sensor_msgs::msg::PointCloud2>();
@@ -204,16 +204,16 @@ void LidarMergerNode::concatenate_pointclouds(
 
     // Быстрое копирование блоков памяти на аппаратном уровне
     std::memcpy(
-        base.data.data() + original_size,   // Указатель на конец старых данных
-        add.data.data(),                    // Указатель на начало новых данных
-        add.data.size()                     // Количество байт для копирования
+        base.data.data() + original_size,  // Указатель на конец старых данных
+        add.data.data(),  // Указатель на начало новых данных
+        add.data.size()  // Количество байт для копирования
     );
 
     base.width   += add.width;
     base.row_step = base.width * base.point_step;
     base.is_dense = base.is_dense && add.is_dense;
 }
-}   // namespace mona_perception
+}  // namespace mona_perception
 
 
 // Регистрация компонента в инфраструктуре ROS 2

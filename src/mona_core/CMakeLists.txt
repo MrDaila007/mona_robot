@@ -29,6 +29,9 @@ find_package(sensor_msgs      REQUIRED)
 find_package(std_msgs         REQUIRED)
 find_package(std_srvs         REQUIRED)
 find_package(nav_msgs         REQUIRED)
+find_package(diagnostic_updater REQUIRED)
+find_package(rclcpp_action    REQUIRED)
+find_package(nav2_msgs        REQUIRED)
 
 include_directories(include)
 
@@ -52,6 +55,9 @@ ament_target_dependencies(safety_node_component
   std_msgs
   nav_msgs
   std_srvs
+  diagnostic_updater
+  rclcpp_action
+  nav2_msgs
 )
 
 # Регистрируем плагин в системе ROS 2

@@ -31,19 +31,22 @@
 #include "std_srvs/srv/trigger.hpp"
 #include "lifecycle_msgs/msg/state.hpp"
 #include "nav_msgs/msg/odometry.hpp"
+#include "diagnostic_updater/diagnostic_updater.hpp"
+#include "rclcpp_action/rclcpp_action.hpp"
+#include "nav2_msgs/action/navigate_to_pose.hpp"
 
 // ANSI Коды для раскраски логов
 #define COLOR_BLUE  "\033[34m"
 #define COLOR_RESET "\033[0m"
 
 enum class RobotState {
-    UCFG,               // Unconfigured
-    IDLE,               // Нет команд
-    MANUAL,             // Управляет человек
-    AUTONOMOUS,         // Управляет сервер
-    DEGRADED,           // Проблемы с производительностью (медленный режим)
-    PROTECTIVE_STOP,    // Стоим, ждём ребута PRIMARY Узла
-    EMERGENCY           // E-STOP активен
+    UCFG,  // Unconfigured
+    IDLE,  // Нет команд
+    MANUAL,  // Управляет человек
+    AUTONOMOUS,  // Управляет сервер
+    DEGRADED,  // Проблемы с производительностью (медленный режим)
+    PROTECTIVE_STOP,  // Стоим, ждём ребута PRIMARY Узла
+    EMERGENCY  // E-STOP активен
 };
 
 
@@ -71,6 +74,7 @@ private:
     void publish_stop();
     void publish_status(std::string status_text);
     void publish_velocity_clipped(const geometry_msgs::msg::Twist &msg);
+    void produce_diagnistics(diagnostic_updater::DiagnosticStatusWrapper &stat);
 
     // --- CALLBACKS --- //
     void health_state_callback(const std_msgs::msg::String::SharedPtr msg);
@@ -79,6 +83,9 @@ private:
     void odom_callback(const nav_msgs::msg::Odometry::SharedPtr msg);
     void estop_callback(
         const std::shared_ptr<std_srvs::srv::Trigger::Request>,
+        std::shared_ptr<std_srvs::srv::Trigger::Response> response);
+    void reset_estop_callback(
+        const std::shared_ptr<std_srvs::srv::Trigger::Request> request,
         std::shared_ptr<std_srvs::srv::Trigger::Response> response);
     void watchdog_routine();
 
@@ -92,6 +99,8 @@ private:
     rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr sub_odom_;
     rclcpp::Subscription<std_msgs::msg::String>::SharedPtr sub_health_state_;
     rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr srv_estop_;
+    rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr reset_estop_srv_;
+    rclcpp_action::Client<nav2_msgs::action::NavigateToPose>::SharedPtr nav_action_client_;
     rclcpp::TimerBase::SharedPtr watchdog_timer_;
 
     std::mutex mux_mutex_;
@@ -106,16 +115,19 @@ private:
     RobotState current_state_;
     std::string last_fdir_state_ = "";
 
+    // Состояние аппаратной кнопки E-STOP
+    std::atomic<bool> hardware_button_pressed_{false};
     std::atomic<bool> e_stop_active_{false};
-    std::atomic<bool> is_processing_allowed_{false};    // ЗАЩИТА ОТ ЗОМБИ КОЛЛБЭКОВ
+    std::atomic<bool> is_processing_allowed_{false};  // ЗАЩИТА ОТ ЗОМБИ КОЛЛБЭКОВ
+    std::atomic<bool> contactors_enabled_{false};
 
-    bool contactors_enabled_ = false;
+    diagnostic_updater::Updater diagnostic_updater_;
 
     double cmd_timeout_;
     double manual_timeout_;
     double max_speed_normal_;
     double max_speed_degraded_;
 };
-}   // namespace mona_core
+}  // namespace mona_core
 
 #endif  // MONA_CORE__SAFETY_NODE_HPP_

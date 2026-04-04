@@ -5,6 +5,7 @@ Panels:
     Property Tree Widget:
       Expanded:
         - /PointCloud21/Topic1
+        - /LaserScan1
         - /LaserScan1/Topic1
         - /Map1/Topic1
       Splitter Ratio: 0.5347721576690674
@@ -396,10 +397,10 @@ Visualization Manager:
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.8297967910766602
+      Pitch: 0.624796986579895
       Target Frame: <Fixed Frame>
       Value: XYOrbit (rviz_default_plugins)
-      Yaw: 2.3373770713806152
+      Yaw: 2.4823787212371826
     Saved: ~
 Window Geometry:
   Displays:

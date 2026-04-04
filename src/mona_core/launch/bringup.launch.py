@@ -22,7 +22,8 @@ from launch.actions import IncludeLaunchDescription, SetEnvironmentVariable, \
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.conditions import IfCondition
 from launch.substitutions import LaunchConfiguration
-from launch_ros.actions import Node, LifecycleNode
+from launch_ros.actions import Node, ComposableNodeContainer
+from launch_ros.descriptions import ComposableNode
 import xacro
 
 
@@ -103,7 +104,8 @@ def generate_launch_description():
         package='ros_gz_bridge',
         executable='parameter_bridge',
         arguments=[
-            '/cmd_vel@geometry_msgs/msg/Twist]ignition.msgs.Twist',
+            # '/cmd_vel@geometry_msgs/msg/Twist]ignition.msgs.Twist',
+            '/hardware/motor_cmd@geometry_msgs/msg/Twist]ignition.msgs.Twist',
             '/odom@nav_msgs/msg/Odometry[ignition.msgs.Odometry',
             # '/tf@tf2_msgs/msg/TFMessage[ignition.msgs.Pose_V',
             '/joint_states@sensor_msgs/msg/JointState[ignition.msgs.Model',
@@ -131,15 +133,42 @@ def generate_launch_description():
         output='screen'
     )
 
-    safety_node = LifecycleNode(
-        package='mona_core',
-        executable='safety_node',
-        name='safety_node',
+#    safety_node = LifecycleNode(
+#        package='mona_core',
+#        executable='safety_node',
+#        name='safety_node',
+#        namespace='',
+#        output='screen',
+#        parameters=[{'use_sim_time': use_sim_time}]
+#    )
+
+    # 6. ZERO-COPY COMPONENT CONTAINER
+    # Запускаем мультипоточный контейнер, в который загрузим C++ плагины
+    core_container = ComposableNodeContainer(
+        name='mona_core_container',
         namespace='',
+        package='rclcpp_components',
+        executable='component_container_mt',    # mt = Multi-Threaded
         output='screen',
-        parameters=[{'use_sim_time': use_sim_time}]
+        composable_node_descriptions=[
+            # Модуль слияния лидаров
+            ComposableNode(
+                package='mona_perception',
+                plugin='mona_perception::LidarMergerNode',
+                name='mona_lidar_merger',
+                parameters=[{'use_sim_time': use_sim_time}],
+            ),
+            # Модуль безопасности
+            ComposableNode(
+                package='mona_core',
+                plugin='mona_core::SafetyNode',
+                name='safety_node',
+                parameters=[{'use_sim_time': use_sim_time}],
+            )
+        ]
     )
 
+    # 7. FDIR Manager
     fdir_manager = Node(
         package='mona_core',
         executable='fdir_manager.py',
@@ -148,6 +177,7 @@ def generate_launch_description():
         parameters=[{'use_sim_time': use_sim_time}]
     )
 
+    # 8. Perception
     perception_launch = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
             os.path.join(pkg_mona_perception, 'launch', 'perception.launch.py')
@@ -155,7 +185,7 @@ def generate_launch_description():
         launch_arguments={'use_sim_time': use_sim_time}.items(),
     )
 
-    # Инициализация узла robot_localization
+    # 9. Инициализация узла robot_localization
     ekf_node = Node(
         package='robot_localization',
         executable='ekf_node',
@@ -165,7 +195,7 @@ def generate_launch_description():
         remappings=[('/odometry/filtered', '/odom_filtered')]
     )
 
-    # 6. Интеграция подсистемы SLAM
+    # 10. Интеграция подсистемы SLAM
     slam_launch = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
             os.path.join(pkg_mona_core, 'launch', 'slam.launch.py')
@@ -173,7 +203,7 @@ def generate_launch_description():
         launch_arguments={'use_sim_time': use_sim_time}.items(),
     )
 
-    # 7. Автономная навигация Nav2
+    # 11. Автономная навигация Nav2
     navigation_launch = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
             os.path.join(pkg_mona_core, 'launch', 'navigation.launch.py')
@@ -181,7 +211,7 @@ def generate_launch_description():
         launch_arguments={'use_sim_time': use_sim_time}.items(),
     )
 
-    # 8. Ручное управление (Геймпад)
+    # 12. Ручное управление (Геймпад)
     teleop_launch = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
             os.path.join(pkg_mona_core, 'launch', 'teleop.launch.py')
@@ -189,6 +219,7 @@ def generate_launch_description():
         condition=IfCondition(use_gamepad)      # Запустится ТОЛЬКО если use_gamepad:=true
     )
 
+    # 13. Rosbag
     rosbag_record = ExecuteProcess(
         cmd=[
             'ros2', 'bag', 'record',
@@ -211,7 +242,8 @@ def generate_launch_description():
         spawn_entity,
         bridge,
         node_rviz,
-        safety_node,
+        # safety_node,
+        core_container,
         perception_launch,
         fdir_manager,
         rosbag_record,

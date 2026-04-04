@@ -14,13 +14,18 @@
 
 
 #include "mona_core/safety_node.hpp"
+#include <chrono>
 
 using namespace std::chrono_literals;
 
 namespace mona_core
 {
-SafetyNode::SafetyNode(const rclcpp::NodeOptions &options) : rclcpp_lifecycle::LifecycleNode(
-                                                                 "safety_node", options) {}
+SafetyNode::SafetyNode(const rclcpp::NodeOptions &options) 
+: rclcpp_lifecycle::LifecycleNode("safety_node", options), diagnostic_updater_(this) {
+    // Аппаратный ID устанавливается в самую первую микросекунду жизни объекта
+    diagnostic_updater_.setHardwareID("mona_base_controller");
+}
+
 SafetyNode::~SafetyNode() {
     // Гарантируем отключение даже если объект уничтожается
     set_hardware_contactors(false);
@@ -51,7 +56,7 @@ CallbackReturn SafetyNode::on_configure(const rclcpp_lifecycle::State &) {
     sub_opts.callback_group = callback_group;
 
     // --- ПАБЛИШЕРЫ --- ///
-    cmd_vel_out_ = this->create_publisher<geometry_msgs::msg::Twist>("cmd_vel", 10);
+    cmd_vel_out_ = this->create_publisher<geometry_msgs::msg::Twist>("hardware/motor_cmd", 10);
     status_pub_  = this->create_publisher<std_msgs::msg::String>("robot_status", 10);
 
     rclcpp::QoS qos_profile(1);
@@ -97,6 +102,21 @@ CallbackReturn SafetyNode::on_configure(const rclcpp_lifecycle::State &) {
             &SafetyNode::estop_callback, this, std::placeholders::_1,
             std::placeholders::_2)
     );
+    // Создаем сервис для сброса
+    reset_estop_srv_ = this->create_service<std_srvs::srv::Trigger>(
+        "reset_e_stop",
+        std::bind(
+            &SafetyNode::reset_estop_callback, this, std::placeholders::_1,
+            std::placeholders::_2));
+
+    // --- ЭКШЕНЫ --- //
+    // Инициализируем клиент для отмены задач Nav2
+    nav_action_client_ = rclcpp_action::create_client<nav2_msgs::action::NavigateToPose>(
+        this->get_node_base_interface(),
+        this->get_node_graph_interface(),
+        this->get_node_logging_interface(),
+        this->get_node_waitables_interface(),
+        "navigate_to_pose");
 
     // Главный Watchdog таймер (100 Гц - очень быстро)
     watchdog_timer_ = this->create_wall_timer(
@@ -104,6 +124,9 @@ CallbackReturn SafetyNode::on_configure(const rclcpp_lifecycle::State &) {
         std::bind(&SafetyNode::watchdog_routine, this),
         callback_group
     );
+
+    // Инициализация диагностики
+    diagnostic_updater_.add("Safety Core", this, &SafetyNode::produce_diagnistics);
 
     RCLCPP_INFO(get_logger(), "Safety Node CONFIGURED. Watchdog timeout: %.2f s", cmd_timeout_);
     return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn::SUCCESS;
@@ -135,7 +158,7 @@ CallbackReturn SafetyNode::on_activate(const rclcpp_lifecycle::State &) {
 // --- LIFECYCLE: DEACTIVATE --- //
 CallbackReturn SafetyNode::on_deactivate(const rclcpp_lifecycle::State &) {
     // Сначала отправляем стоп для безопасности
-    is_processing_allowed_ = false;     // Блокируем ЗОМБИ-коллбэки
+    is_processing_allowed_ = false;  // Блокируем ЗОМБИ-коллбэки
     set_hardware_contactors(false);
     publish_stop();
 
@@ -166,7 +189,7 @@ CallbackReturn SafetyNode::on_cleanup(const rclcpp_lifecycle::State &) {
 
 // --- LIFECYCLE: SHUTDOWN --- //
 CallbackReturn SafetyNode::on_shutdown(const rclcpp_lifecycle::State &state) {
-    is_processing_allowed_ = false;     // Блокируем всё
+    is_processing_allowed_ = false;  // Блокируем всё
     // Защита от тихой смерти
     set_hardware_contactors(false);
     publish_stop();
@@ -230,15 +253,52 @@ void SafetyNode::publish_velocity_clipped(const geometry_msgs::msg::Twist &msg) 
     if (cmd_vel_out_->is_activated()) {cmd_vel_out_->publish(clipped_msg);}
 }
 
+void SafetyNode::produce_diagnistics(diagnostic_updater::DiagnosticStatusWrapper &stat) {
+    // Устанавливаем базовый уровень и сообщение
+    if (current_state_ == RobotState::EMERGENCY || e_stop_active_) {
+        stat.summary(diagnostic_msgs::msg::DiagnosticStatus::ERROR, "EMERGENCY STOP ACTIVE");
+    } else if (current_state_ == RobotState::PROTECTIVE_STOP) {
+        stat.summary(diagnostic_msgs::msg::DiagnosticStatus::WARN, "Protective Stop (Waiting)");
+    } else if (current_state_ == RobotState::DEGRADED) {
+        stat.summary(diagnostic_msgs::msg::DiagnosticStatus::WARN, "Performance Degraded");
+    } else {
+        stat.summary(diagnostic_msgs::msg::DiagnosticStatus::OK, "System Normal");
+    }
+
+    // Добавляем ключ-значение для GUI
+    stat.add("Contactors Enabled", contactors_enabled_ ? "True" : "False");
+    stat.add("Watchdog Timeout (s)", std::to_string(cmd_timeout_));
+    stat.add("E-Stop Hardware State", e_stop_active_ ? "Triggered" : "Clear");
+
+    // Преобразуем enum состояния в строку
+    std::string state_str;
+    switch (current_state_) {
+        case RobotState::IDLE:       state_str = "IDLE"; break;
+        case RobotState::MANUAL:     state_str = "MANUAL_TELEOP"; break;
+        case RobotState::AUTONOMOUS: state_str = "AUTONOMOUS NAV"; break;
+        default:                     state_str = "OTHER"; break;
+    }
+}
+
 // --- CALLBACKS --- //
 void SafetyNode::health_state_callback(const std_msgs::msg::String::SharedPtr msg) {
     if (!is_processing_allowed_) {
-        return;                           // ЗАЩИТА ОТ ЗОМБИ
+        return;  // ЗАЩИТА ОТ ЗОМБИ
     }
+
+    std::string fdir_state = msg->data;
+
+    // --- Аппаратная защёлка --- //
+    // Если E-STOP активен, то мы не реагируем ни на что кроме самой аварии.
+    if (e_stop_active_) {
+        if (fdir_state != "EMERGENCY") {
+            return;
+        }
+    }
+
     // Логируем сообщения только при смене статуса
-    std::string fdir_state    = msg->data;
-    bool        state_changed = (fdir_state != last_fdir_state_);
-    last_fdir_state_          = fdir_state;
+    bool state_changed = (fdir_state != last_fdir_state_);
+    last_fdir_state_   = fdir_state;
 
     if (fdir_state == "SYSTEM_STARTUP") {
         current_state_ = RobotState::PROTECTIVE_STOP;
@@ -250,7 +310,7 @@ void SafetyNode::health_state_callback(const std_msgs::msg::String::SharedPtr ms
                 COLOR_BLUE "System is initializing... Contactors OFF." COLOR_RESET);
         }
     } else if (fdir_state == "EMERGENCY") {
-        e_stop_active_ = true;
+        e_stop_active_ = true;  // Дублируем установку защёлки, если источник аварии - FDIR
         publish_stop();
         set_hardware_contactors(false);
         if (state_changed) {
@@ -267,7 +327,7 @@ void SafetyNode::health_state_callback(const std_msgs::msg::String::SharedPtr ms
     } else if (fdir_state == "DEGRADED") {
         current_state_ = RobotState::DEGRADED;
         set_hardware_contactors(true);
-    } else if (fdir_state == "NORMAL" && !e_stop_active_) {
+    } else if (fdir_state == "NORMAL") {
         // Если мы возвращаемся из состояния ошибки, сбрасываем статус в IDLE.
         // При наличии свежих команд телеоператора или навигатора состояние
         // автоматически переключится в MANUAL или AUTONOMOUS в watchdog_routine.
@@ -291,7 +351,23 @@ void SafetyNode::teleop_callback(const geometry_msgs::msg::Twist::SharedPtr msg)
 }
 
 void SafetyNode::nav_callback(const geometry_msgs::msg::Twist::SharedPtr msg) {
-    if (!is_processing_allowed_ || e_stop_active_) {return;}
+    if (!is_processing_allowed_) {return;}
+
+    // Превентивный удар по Nav2
+    if (e_stop_active_) {
+        // Если автопилот пытается прислать команду по время E-STOP,
+        // программа не проигнорирует её, а жёстко отменяем задачу.
+        if (nav_action_client_->wait_for_action_server(std::chrono::milliseconds(10))) {
+            nav_action_client_->async_cancel_all_goals();
+            RCLCPP_WARN_THROTTLE(
+                get_logger(),
+                *get_clock(),
+                2000,
+                "SECURITY BREACH ATTEMPT: Nav2 sent commands during E-STOP. Cancel its goal!"
+            );
+            return;
+        }
+    }
 
     std::lock_guard<std::mutex> lock(mux_mutex_);
     last_nav_time_ = this->now();
@@ -328,9 +404,43 @@ void SafetyNode::estop_callback(
     current_state_ = RobotState::EMERGENCY;
     publish_stop();
     set_hardware_contactors(false);
+
+    // --- ОТМЕНА ЦЕЛЕЙ NAV2 ---
+    if (nav_action_client_->wait_for_action_server(std::chrono::milliseconds(100))) {
+        RCLCPP_INFO(get_logger(), "Canceling all Nav2 goals...");
+        nav_action_client_->async_cancel_all_goals();
+    } else {
+        RCLCPP_WARN(get_logger(), "Nav2 Action server not available, couldn't cancel goals.");
+    }
+
+    // Принудительно обновляем диагностику (для rqt_robot_monitor)
+    diagnostic_updater_.force_update();
+
     response->success = true;
     response->message = "EMERGENCY STOP (LEVEL 2) ACTIVATED!";
     RCLCPP_FATAL(get_logger(), "!!! LEVEL 2 E-STOP: MOTORS DE-ENERGIZED !!!");
+}
+
+void SafetyNode::reset_estop_callback(
+    const std::shared_ptr<std_srvs::srv::Trigger::Request>  /*request*/,
+    std::shared_ptr<std_srvs::srv::Trigger::Response> response) {
+    if (hardware_button_pressed_) {
+        response->success = false;
+        response->message = "REJECTED: Physical E-STOP button is still pressed!";
+        RCLCPP_WARN(get_logger(), "Cannot reset E-STOP: Hardware button is engaged.");
+        return;
+    }
+
+    e_stop_active_ = false;  // Снимаем "защёлку"
+    current_state_ = RobotState::IDLE;  // Переводим в нейтральное ожидание
+
+    // Включаем контакторы обратно (если требуется по логике системы)
+    set_hardware_contactors(true);
+    diagnostic_updater_.force_update();
+
+    response->success = true;
+    response->message = "E-STOP Reset Successful. Resuming normal operations.";
+    RCLCPP_INFO(get_logger(), "E-STOP Reset via FMS. Back to IDLE.");
 }
 
 void SafetyNode::watchdog_routine() {
@@ -382,8 +492,11 @@ void SafetyNode::watchdog_routine() {
     }
 
     publish_velocity_clipped(smoothed_cmd_vel_);
+
+    // Обновляем диагностику ROS2
+    diagnostic_updater_.force_update();
 }
-}   // namespace mona_core
+}  // namespace mona_core
 
 
 // Регистрация компонента в инфраструктуре ROS 2
