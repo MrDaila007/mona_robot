@@ -20,10 +20,10 @@
 #include "lifecycle_msgs/msg/state.hpp"
 #include "lifecycle_msgs/msg/transition.hpp"
 
-#include "mona_core/safety_node.hpp"
+#include "mona_control/twist_mux_node.hpp"
 
 // Тестовый стенд (Fixture) для инициализации окружения ROS 2
-class TestSafety : public ::testing::Test {
+class TestControl : public ::testing::Test {
 protected:
     static void SetUpTestSuite() {
         rclcpp::init(0, nullptr);
@@ -35,9 +35,9 @@ protected:
 };
 
 // Test 1: Проверка инициализации и переходов жизненного цикла (lifecycle)
-TEST_F(TestSafety, LifecycleTransition) {
+TEST_F(TestControl, LifecycleTransition) {
     rclcpp::NodeOptions options;
-    auto node = std::make_shared<mona_core::SafetyNode>(options);
+    auto node = std::make_shared<mona_control::TwistMuxNode>(options);
 
     // Проверяем начальное состояние (UNCONFIGURED)
     EXPECT_EQ(

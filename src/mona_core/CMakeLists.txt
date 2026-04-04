@@ -19,118 +19,18 @@ if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wall -Wextra -Wpedantic)
 endif()
 
-find_package(ament_cmake      REQUIRED)
-find_package(rclcpp           REQUIRED)
-find_package(rclcpp_lifecycle REQUIRED)
-find_package(rclcpp_components REQUIRED)
-find_package(lifecycle_msgs   REQUIRED)
-find_package(geometry_msgs    REQUIRED)
-find_package(sensor_msgs      REQUIRED)
-find_package(std_msgs         REQUIRED)
-find_package(std_srvs         REQUIRED)
-find_package(nav_msgs         REQUIRED)
-find_package(diagnostic_updater REQUIRED)
-find_package(rclcpp_action    REQUIRED)
-find_package(nav2_msgs        REQUIRED)
+find_package(ament_cmake REQUIRED)
 
-include_directories(include)
-
-# Сборка библиотеки компонента
-add_library(safety_node_component SHARED
-  src/safety_node.cpp
-)
-
-target_include_directories(safety_node_component PUBLIC
-  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-  $<INSTALL_INTERFACE:include>
-)
-
-# Линкуем зависимости
-ament_target_dependencies(safety_node_component
-  rclcpp
-  rclcpp_components
-  rclcpp_lifecycle
-  lifecycle_msgs
-  geometry_msgs
-  std_msgs
-  nav_msgs
-  std_srvs
-  diagnostic_updater
-  rclcpp_action
-  nav2_msgs
-)
-
-# Регистрируем плагин в системе ROS 2
-rclcpp_components_register_node(safety_node_component
-  PLUGIN "mona_core::SafetyNode"
-  EXECUTABLE safety_node
-)
-
-# Установка (install)
+# Установка папок с конфигурациями, лаунчами и картами
 install(
-  TARGETS safety_node_component safety_node
-  ARCHIVE DESTINATION lib
-  LIBRARY DESTINATION lib
-  RUNTIME DESTINATION lib/${PROJECT_NAME}
-)
-
-install(
-  DIRECTORY   include/
-  DESTINATION include
-)
-
-install(
-  PROGRAMS    scripts/fdir_manager.py
-  DESTINATION lib/${PROJECT_NAME}
-)
-
-install(
-  DIRECTORY   launch configs maps
+  DIRECTORY launch configs maps scripts
   DESTINATION share/${PROJECT_NAME}
 )
 
-# Тестирование и линтеры
-if(BUILD_TESTING)
-  # 1. Используем ручной поиск конкретных пакетов (вместо ament_lint_auto)
-  find_package(ament_cmake_gtest      REQUIRED)
-  find_package(ament_cmake_cppcheck   REQUIRED)
-  find_package(ament_cmake_cpplint    REQUIRED)
-  find_package(ament_cmake_uncrustify REQUIRED)
-  find_package(ament_cmake_xmllint    REQUIRED)
-  find_package(ament_cmake_lint_cmake REQUIRED)
-  find_package(ament_cmake_copyright  REQUIRED)
-  find_package(ament_cmake_flake8     REQUIRED)
-
-  # 2. Сборка GTest
-  ament_add_gtest(test_safety test/test_lifecycle_instantiation.cpp)
-
-  target_link_libraries(test_safety safety_node_component)
-
-  ament_target_dependencies(test_safety
-    rclcpp
-    rclcpp_lifecycle
-    lifecycle_msgs
-    sensor_msgs
-  )
-
-  # 3. Запускаем линтеры
-  # C++ статический анализ и стиль
-  ament_cppcheck()
-  ament_cpplint()
-  # uncrustify с кастомным конфигом
-  ament_uncrustify(CONFIG_FILE "${CMAKE_CURRENT_SOURCE_DIR}/../../configs/uncrustify.cfg")
-
-  # Проверка лицензий (Copyright)
-  ament_copyright()
-
-  # Python линтер с кастомным конфигом
-  ament_flake8(CONFIG_FILE "${CMAKE_CURRENT_SOURCE_DIR}/../../configs/setup.cfg")
-
-  # XML (package, launch, xacro)
-  ament_xmllint()
-
-  # CMake стиль
-  ament_lint_cmake()
-endif()
+# Установка Python-скриптов (чтобы ros2 run mona_core fdir_manager.py работал)
+install(
+  PROGRAMS scripts/fdir_manager.py
+  DESTINATION lib/${PROJECT_NAME}
+)
 
 ament_package()
