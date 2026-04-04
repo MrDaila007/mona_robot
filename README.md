@@ -3,7 +3,7 @@
 > Проект автономного мобильного робота для складской логистики. Система построена на базе ROS 2 Humble и использует контейнеризированную среду разработки для гарантии воспроизводимости кода.
 
 [![CI Build](https://github.com/vladubase/mona_robot/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/vladubase/mona_robot/actions/workflows/ci.yml)
-[![![codecov](https://codecov.io/github/vladubase/mona_robot/graph/badge.svg?token=574IVKN5L6)](https://codecov.io/github/vladubase/mona_robot)
+[![codecov](https://codecov.io/github/vladubase/mona_robot/graph/badge.svg?token=574IVKN5L6)](https://codecov.io/github/vladubase/mona_robot)
 [![CodeQL](https://github.com/vladubase/mona_robot/actions/workflows/github-code-scanning/codeql/badge.svg?branch=main)](https://github.com/vladubase/mona_robot/actions/workflows/github-code-scanning/codeql)
 [![CodeFactor](https://www.codefactor.io/repository/github/vladubase/mona_robot/badge)](https://www.codefactor.io/repository/github/vladubase/mona_robot)
 [![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/vladubase/mona_robot/badge)](https://api.securityscorecards.dev/projects/github.com/vladubase/mona_robot)
