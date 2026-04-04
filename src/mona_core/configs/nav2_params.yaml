@@ -112,9 +112,9 @@ bt_navigator_navigate_to_pose_rclcpp_node:
 controller_server:
   ros__parameters:
     use_sim_time: True
-    controller_frequency: 20.0
+    controller_frequency: 10.0
     min_x_velocity_threshold: 0.001
-    min_y_velocity_threshold: 0.5
+    min_y_velocity_threshold: 0.001
     min_theta_velocity_threshold: 0.001
     failure_tolerance: 0.3
     progress_checker_plugin: "progress_checker"
@@ -124,8 +124,8 @@ controller_server:
     # Progress checker parameters
     progress_checker:
       plugin: "nav2_controller::SimpleProgressChecker"
-      required_movement_radius: 0.5
-      movement_time_allowance: 10.0
+      required_movement_radius: 0.05
+      movement_time_allowance: 5.0
     # Goal checker parameters
     #precise_goal_checker:
     #  plugin: "nav2_controller::SimpleGoalChecker"
@@ -135,37 +135,43 @@ controller_server:
     general_goal_checker:
       stateful: True
       plugin: "nav2_controller::SimpleGoalChecker"
-      xy_goal_tolerance: 0.05
-      yaw_goal_tolerance: 0.05
+      xy_goal_tolerance: 0.020  # 2см
+      yaw_goal_tolerance: 0.052 # ~3 градуса
+      trans_stopped_velocity: 0.02
+      rot_stopped_velocity: 0.02
     # DWB parameters
     FollowPath:
       plugin: "dwb_core::DWBLocalPlanner"
       debug_trajectory_details: True
-      min_vel_x: 0.0
-      min_vel_y: -0.5
-      max_vel_x: 0.26
-      max_vel_y: 0.5
+      
+      min_vel_x: -0.3
+      max_vel_x: 0.3
+      min_vel_y: -0.2
+      max_vel_y: 0.2
       max_vel_theta: 1.0
-      min_speed_xy: 0.0
-      max_speed_xy: 0.26
+      min_speed_xy: 0.0         # Минимально возможная скорость по прямой (5 см/с)
+      max_speed_xy: 0.3         # Минимальная скорость вращения (~4.5 град/с).
       min_speed_theta: 0.0
-      # Add high threshold velocity for turtlebot 3 issue.
-      # https://github.com/ROBOTIS-GIT/turtlebot3_simulations/issues/75
-      acc_lim_x: 2.5
-      acc_lim_y: 0.0
-      acc_lim_theta: 3.2
-      decel_lim_x: -2.5
-      decel_lim_y: 0.0
-      decel_lim_theta: -3.2
-      vx_samples: 20
-      vy_samples: 5
+
+      acc_lim_x: 1.5            # Смягчаем рывок вперед
+      acc_lim_y: 1.0
+      acc_lim_theta: 1.0        # Смягчаем вращение
+      decel_lim_x: -1.5         # Мягкое торможение
+      decel_lim_y: -1.0
+      decel_lim_theta: -1.0     # Мягкое торможение при вращении
+
+      vx_samples: 15
+      vy_samples: 15
       vtheta_samples: 20
-      sim_time: 1.7
+
+      sim_time: 1.5             # Горизонт симуляции
+
+      xy_goal_tolerance: 0.020  # 2см
+      yaw_goal_tolerance: 0.052 # ~3 градуса
+
       linear_granularity: 0.05
       angular_granularity: 0.025
       transform_tolerance: 0.2
-      xy_goal_tolerance: 0.25
-      trans_stopped_velocity: 0.25
       short_circuit_trajectory_evaluation: True
       stateful: True
       critics: ["RotateToGoal", "Oscillation", "BaseObstacle", "GoalAlign", "PathAlign", "PathDist", "GoalDist"]
@@ -175,7 +181,7 @@ controller_server:
       GoalAlign.scale: 24.0
       GoalAlign.forward_point_distance: 0.1
       PathDist.scale: 32.0
-      GoalDist.scale: 24.0
+      GoalDist.scale: 48.0
       RotateToGoal.scale: 32.0
       RotateToGoal.slowing_factor: 5.0
       RotateToGoal.lookahead_time: -1.0
@@ -219,6 +225,8 @@ local_costmap:
           raytrace_min_range: 0.0
           obstacle_max_range: 2.5
           obstacle_min_range: 0.0
+          expected_publish_period: 0.0  # QoS для RELIABLE
+          inf_is_valid: True
       static_layer:
         plugin: "nav2_costmap_2d::StaticLayer"
         map_subscribe_transient_local: True
@@ -251,6 +259,8 @@ global_costmap:
           raytrace_min_range: 0.0
           obstacle_max_range: 2.5
           obstacle_min_range: 0.0
+          expected_publish_period: 0.0  # QoS для RELIABLE
+          inf_is_valid: True
       static_layer:
         plugin: "nav2_costmap_2d::StaticLayer"
         map_subscribe_transient_local: True
@@ -302,8 +312,10 @@ behavior_server:
     footprint_topic: local_costmap/published_footprint
     cycle_frequency: 10.0
     behavior_plugins: ["spin", "backup", "drive_on_heading", "assisted_teleop", "wait"]
+    # Fucking random dangerous spinning
     spin:
       plugin: "nav2_behaviors/Spin"
+    # Fucking random dangerous moving
     backup:
       plugin: "nav2_behaviors/BackUp"
     drive_on_heading:

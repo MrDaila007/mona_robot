@@ -156,15 +156,16 @@
       <min_acceleration>-2.5</min_acceleration>
       <max_acceleration>2.5</max_acceleration>
 
-      <topic>/cmd_vel</topic>
+      <topic>/hardware/motor_cmd</topic>
     </plugin>
 
+    <!-- Sensor: Odometry -->    
     <plugin filename="libignition-gazebo-odometry-publisher-system.so" name="ignition::gazebo::systems::OdometryPublisher">
       <odom_frame>odom</odom_frame>
       <robot_base_frame>base_footprint</robot_base_frame>
       <odom_topic>/odom</odom_topic>
       <odom_publish_frequency>50</odom_publish_frequency>
-      <dimensions>2</dimensions>
+      <dimensions>3</dimensions>
     </plugin>
 
     <!-- Sensor: IMU -->

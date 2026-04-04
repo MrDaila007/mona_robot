@@ -25,6 +25,8 @@ RUN apt-get update && apt-get install -y \
     ros-humble-xacro ros-humble-rviz2 ros-humble-ros-gz \
     ros-humble-laser-geometry ros-humble-tf2-sensor-msgs \
     ros-humble-rqt-graph ros-humble-rqt-common-plugins \
+    ros-humble-rqt-robot-monitor \
+    ros-humble-rqt-runtime-monitor \
     ros-humble-robot-localization \
     ros-humble-navigation2 ros-humble-nav2-bringup \
     ros-humble-slam-toolbox \

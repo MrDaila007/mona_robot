@@ -17,7 +17,7 @@
 from launch import LaunchDescription
 from launch.substitutions import LaunchConfiguration
 from launch.actions import DeclareLaunchArgument
-from launch_ros.actions import Node, LifecycleNode
+from launch_ros.actions import Node
 
 
 def generate_launch_description():
@@ -29,15 +29,15 @@ def generate_launch_description():
         description='Use simulation (Gazebo) clock if true'
     )
 
-    # 1. Запускаем наш новый C++ компонент Lidar Merger
-    lidar_merger = LifecycleNode(
-        package='mona_perception',
-        executable='lidar_merger_node',  # Используем имя исполняемого файла из CMake
-        name='mona_lidar_merger',
-        namespace='',
-        output='screen',
-        parameters=[{'use_sim_time': use_sim_time}]
-    )
+#    # 1. Запускаем C++ компонент Lidar Merger
+#    lidar_merger = LifecycleNode(
+#        package='mona_perception',
+#        executable='lidar_merger_node',  # Используем имя исполняемого файла из CMake
+#        name='mona_lidar_merger',
+#        namespace='',
+#        output='screen',
+#        parameters=[{'use_sim_time': use_sim_time}]
+#    )
 
     # 2. Конвертация PointCloud2 в LaserScan для SLAM
     pointcloud_to_laserscan = Node(
@@ -63,12 +63,12 @@ def generate_launch_description():
             'use_inf': True,
             'inf_epsilon': 1.0,
             'use_sim_time': use_sim_time,
-            'qos_overrides./scan.publisher.reliability': 'reliable'
+            'qos_overrides./scan.publisher.reliability': 'best_effort'
         }]
     )
 
     return LaunchDescription([
         use_sim_time_arg,
-        lidar_merger,
+        # lidar_merger,
         pointcloud_to_laserscan
     ])
