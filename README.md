@@ -13,7 +13,7 @@
 ## О проекте
 **MONA** (Modular Open Navigating AMR) — масштабируемая архитектура управления флотом роботов. Основной упор сделан на безопасность (Safety-Critical), аппаратное резервирование и отказоустойчивость (FDIR) в соответствии с индустриальными стандартами.
 
-https://github.com/vladubase/mona_robot/raw/main/docs/assets/MONA.mp4
+[![MONA Robot Demonstration](https://img.youtube.com/vi/lFO3V1oQM2w/maxresdefault.jpg)](https://www.youtube.com/watch?v=lFO3V1oQM2w)
 
 ## Ключевые архитектурные особенности
 * **Промышленная безопасность (ISO 13849-1 / IEC 61508):** Гибридная архитектура FDIR (Fault Detection, Isolation, and Recovery). Аппаратное резервирование цепей отключения контакторов, Watchdog и EMA-сглаживание пиковых нагрузок тяжёлого шасси (при телеуправлении).
