@@ -53,11 +53,16 @@ protected:
     CallbackReturn on_error(const rclcpp_lifecycle::State &state) override;
 
 private:
+    std::string safety_state_to_string(SafetyState state);
+
     void smoothed_vel_callback(const geometry_msgs::msg::Twist::SharedPtr msg);
     void health_state_callback(const std_msgs::msg::String::SharedPtr msg);
     void mux_status_callback(const std_msgs::msg::String::SharedPtr msg);
     void odom_callback(const nav_msgs::msg::Odometry::SharedPtr msg);
     void estop_callback(
+        const std::shared_ptr<std_srvs::srv::Trigger::Request> request,
+        std::shared_ptr<std_srvs::srv::Trigger::Response> response);
+    void estop_reset_callback(
         const std::shared_ptr<std_srvs::srv::Trigger::Request> request,
         std::shared_ptr<std_srvs::srv::Trigger::Response> response);
 
@@ -72,6 +77,7 @@ private:
     rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odom_sub_;
 
     rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr srv_estop_;
+    rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr srv_estop_reset_;
     rclcpp_lifecycle::LifecyclePublisher<geometry_msgs::msg::Twist>::SharedPtr motor_pub_;
     rclcpp_lifecycle::LifecyclePublisher<std_msgs::msg::String>::SharedPtr robot_status_pub_;
     diagnostic_updater::Updater diagnostic_updater_;

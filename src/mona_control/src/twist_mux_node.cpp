@@ -22,7 +22,7 @@ namespace mona_control
 TwistMuxNode::TwistMuxNode(const rclcpp::NodeOptions &options)
     : rclcpp_lifecycle::LifecycleNode("twist_mux_node", options), last_teleop_time_(this->now()),
       last_nav_time_(this->now()), current_state_(MuxState::UCFG), manual_timeout_(2.0),
-      cmd_timeout_(0.5), alpha_(0.1) {
+      cmd_timeout_(0.5), ema_alpha_(0.1) {
     this->declare_parameter("command_timeout", 0.5);
     this->declare_parameter("manual_takeover_time", 2.0);
     this->declare_parameter("ema_alpha", 0.1);
@@ -30,10 +30,21 @@ TwistMuxNode::TwistMuxNode(const rclcpp::NodeOptions &options)
 
 TwistMuxNode::~TwistMuxNode() {}
 
+std::string TwistMuxNode::mux_state_to_string(MuxState state) {
+    switch (state) {
+        case MuxState::UCFG:       return "UNCONFIGURED";
+        case MuxState::IDLE:       return "IDLE";
+        case MuxState::MANUAL:     return "MANUAL";
+        case MuxState::AUTONOMOUS: return "AUTONOMOUS";
+        case MuxState::BLOCKED:    return "BLOCKED_BY_SAFETY";
+        default:                   return "UNKNOWN";
+    }
+}
+
 CallbackReturn TwistMuxNode::on_configure(const rclcpp_lifecycle::State &) {
     cmd_timeout_    = this->get_parameter("command_timeout").as_double();
     manual_timeout_ = this->get_parameter("manual_takeover_time").as_double();
-    alpha_          = this->get_parameter("ema_alpha").as_double();
+    ema_alpha_      = this->get_parameter("ema_alpha").as_double();
 
     auto callback_group = this->create_callback_group(rclcpp::CallbackGroupType::Reentrant);
     rclcpp::SubscriptionOptions sub_opts;
@@ -41,7 +52,7 @@ CallbackReturn TwistMuxNode::on_configure(const rclcpp_lifecycle::State &) {
 
     // --- ПАБЛИШЕРЫ --- //
     smooth_pub_ = this->create_publisher<geometry_msgs::msg::Twist>("/cmd_vel_smoothed", 10);
-    status_pub_ = this->create_publisher<std_msgs::msg::String>("/robot_status", 10);
+    status_pub_ = this->create_publisher<std_msgs::msg::String>("/mux_status", 10);
 
     // --- ПОДПИСКИ --- //
     // Телеоператор (Высокий приоритет)
@@ -56,11 +67,16 @@ CallbackReturn TwistMuxNode::on_configure(const rclcpp_lifecycle::State &) {
             &TwistMuxNode::nav_callback, this,
             std::placeholders::_1), sub_opts);
 
-    // Главный Watchdog таймер (100 Гц - очень быстро)
+    // Подписка на глобальный статус, чтобы знать об E-STOP
+    robot_status_sub_ = this->create_subscription<std_msgs::msg::String>(
+        "/robot_status", 10, std::bind(
+            &TwistMuxNode::robot_status_callback, this,
+            std::placeholders::_1), sub_opts);
+
     watchdog_timer_ = this->create_wall_timer(
         10ms, std::bind(&TwistMuxNode::control_loop, this), callback_group);
 
-    RCLCPP_INFO(get_logger(), "TwistMux CONFIGURED. EMA Alpha: %.2f", alpha_);
+    RCLCPP_INFO(get_logger(), "TwistMux CONFIGURED. EMA Alpha: %.2f", ema_alpha_);
     return CallbackReturn::SUCCESS;
 }
 
@@ -86,6 +102,7 @@ CallbackReturn TwistMuxNode::on_deactivate(const rclcpp_lifecycle::State &) {
 CallbackReturn TwistMuxNode::on_cleanup(const rclcpp_lifecycle::State &) {
     nav_sub_.reset();
     teleop_sub_.reset();
+    robot_status_sub_.reset();
     smooth_pub_.reset();
     status_pub_.reset();
     watchdog_timer_.reset();
@@ -102,35 +119,54 @@ void TwistMuxNode::publish_status(std::string status_text) {
     std_msgs::msg::String msg;
     msg.data = status_text;
 
-    if (status_pub_->is_activated()) {status_pub_->publish(msg);}
+    if (status_pub_->is_activated()) {
+        status_pub_->publish(msg);
+    }
+}
+
+// Коллбэк для чтения состояния E-STOP
+void TwistMuxNode::robot_status_callback(const std_msgs::msg::String::SharedPtr msg) {
+    if (msg->data == "EMERGENCY" || msg->data == "PROTECTIVE_STOP") {
+        is_safety_blocked_ = true;
+    } else {
+        is_safety_blocked_ = false;
+    }
 }
 
 void TwistMuxNode::teleop_callback(const geometry_msgs::msg::Twist::SharedPtr msg) {
     std::lock_guard<std::mutex> lock(mux_mutex_);
-    last_teleop_time_ = this->now();
 
-    // Перехват управления: отмена цели Nav2
-    if (current_state_ == MuxState::AUTONOMOUS) {
-        if (nav_client_ && nav_client_->action_server_is_ready()) {
-            nav_client_->async_cancel_all_goals();
-            RCLCPP_WARN(get_logger(), "MANUAL TAKEOVER: Canceling active Nav2 goal!");
+    // Фильтр спама нулями
+    bool is_zero_cmd =
+        (std::hypot(msg->linear.x, msg->linear.y) < 0.001 && std::abs(msg->angular.z) < 0.001);
+
+    if (is_zero_cmd) {
+        // Запоминаем 0, чтобы робот плавно остановился, НО не продлеваем таймер блокировки Nav2
+        last_teleop_msg_ = *msg;
+    } else {
+        last_teleop_time_ = this->now();
+
+        // Перехват управления: отмена цели Nav2
+        if (current_state_ == MuxState::AUTONOMOUS) {
+            if (nav_client_ && nav_client_->action_server_is_ready()) {
+                nav_client_->async_cancel_all_goals();
+                RCLCPP_WARN(get_logger(), "MANUAL TAKEOVER: Canceling active Nav2 goal!");
+            }
         }
+        current_state_   = MuxState::MANUAL;
+        last_teleop_msg_ = *msg;
     }
-
-    current_state_   = MuxState::MANUAL;
-    last_teleop_msg_ = *msg;  // Кэшируем команду для интерполяции
 }
 
 void TwistMuxNode::nav_callback(const geometry_msgs::msg::Twist::SharedPtr msg) {
     std::lock_guard<std::mutex> lock(mux_mutex_);
-
     last_nav_time_ = this->now();
 
     // Блокировка навигации, если недавно был активен джойстик
     if ((this->now() - last_teleop_time_).seconds() < manual_timeout_) {return;}
 
     current_state_ = MuxState::AUTONOMOUS;
-    last_nav_msg_  = *msg;      // Кэшируем команду для интерполяции
+    last_nav_msg_  = *msg;
 }
 
 void TwistMuxNode::control_loop() {
@@ -141,26 +177,29 @@ void TwistMuxNode::control_loop() {
     double time_since_teleop = (now - last_teleop_time_).seconds();
     double time_since_nav    = (now - last_nav_time_).seconds();
 
-    if ((time_since_teleop > cmd_timeout_) && (time_since_nav > cmd_timeout_)) {
+    // Внедрение состояния BLOCKED
+    if (is_safety_blocked_) {
+        current_state_ = MuxState::BLOCKED;
+        target_vel_    = geometry_msgs::msg::Twist();   // Форсируем нули
+    } else if ((time_since_teleop > cmd_timeout_) && (time_since_nav > cmd_timeout_)) {
         current_state_ = MuxState::IDLE;
         target_vel_    = geometry_msgs::msg::Twist();
-        publish_status("NO_CMD_DATA");
     } else {
-        // Интерполяция 100 Гц
-        // Защищает от рывков, если джойстик отправляет данные редко
         if (current_state_ == MuxState::MANUAL) {
             target_vel_ = last_teleop_msg_;
-            publish_status("MANUAL");
         } else if (current_state_ == MuxState::AUTONOMOUS) {
             target_vel_ = last_nav_msg_;
-            publish_status("AUTONOMOUS");
         }
     }
 
-    // EMA Filter (Сглаживание пиковых нагрузок тяжелого шасси)
-    current_vel_.linear.x  = alpha_ * target_vel_.linear.x + (1.0 - alpha_) * current_vel_.linear.x;
-    current_vel_.linear.y  = alpha_ * target_vel_.linear.y + (1.0 - alpha_) * current_vel_.linear.y;
-    current_vel_.angular.z = alpha_ * target_vel_.angular.z + (1.0 - alpha_) *
+    publish_status(mux_state_to_string(current_state_));
+
+    // EMA Filter
+    current_vel_.linear.x = ema_alpha_ * target_vel_.linear.x + (1.0 - ema_alpha_) *
+        current_vel_.linear.x;
+    current_vel_.linear.y = ema_alpha_ * target_vel_.linear.y + (1.0 - ema_alpha_) *
+        current_vel_.linear.y;
+    current_vel_.angular.z = ema_alpha_ * target_vel_.angular.z + (1.0 - ema_alpha_) *
         current_vel_.angular.z;
 
     smooth_pub_->publish(current_vel_);

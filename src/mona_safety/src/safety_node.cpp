@@ -36,6 +36,16 @@ SafetyNode::~SafetyNode() {
     set_hardware_contactors(false);
 }
 
+std::string SafetyNode::safety_state_to_string(SafetyState state) {
+    switch (state) {
+        case SafetyState::NORMAL:          return "NORMAL";
+        case SafetyState::DEGRADED:        return "DEGRADED: " + last_mux_status_;
+        case SafetyState::PROTECTIVE_STOP: return "PROTECTIVE_STOP";
+        case SafetyState::EMERGENCY:       return "EMERGENCY";
+        default:                           return "UNKNOWN";
+    }
+}
+
 CallbackReturn SafetyNode::on_configure(const rclcpp_lifecycle::State &) {
     max_speed_normal_   = this->get_parameter("max_speed_normal").as_double();
     max_speed_degraded_ = this->get_parameter("max_speed_degraded").as_double();
@@ -52,6 +62,10 @@ CallbackReturn SafetyNode::on_configure(const rclcpp_lifecycle::State &) {
         "/system/health_state", 10,
         std::bind(&SafetyNode::health_state_callback, this, std::placeholders::_1), sub_opts);
 
+    mux_status_sub_ = create_subscription<std_msgs::msg::String>(
+        "/mux_status", 10,
+        std::bind(&SafetyNode::mux_status_callback, this, std::placeholders::_1), sub_opts);
+
     // Подписка на одометрию для контроля фактической остановки
     odom_sub_ = create_subscription<nav_msgs::msg::Odometry>(
         "/odom", rclcpp::SystemDefaultsQoS(),
@@ -62,6 +76,12 @@ CallbackReturn SafetyNode::on_configure(const rclcpp_lifecycle::State &) {
         std::bind(
             &SafetyNode::estop_callback, this, std::placeholders::_1,
             std::placeholders::_2));
+    srv_estop_reset_ = create_service<std_srvs::srv::Trigger>(
+        "emergency_stop_reset",
+        std::bind(
+            &SafetyNode::estop_reset_callback, this, std::placeholders::_1,
+            std::placeholders::_2)
+    );
 
     motor_pub_        = create_publisher<geometry_msgs::msg::Twist>("/hardware/motor_cmd", 10);
     robot_status_pub_ = create_publisher<std_msgs::msg::String>("/robot_status", 10);
@@ -88,6 +108,7 @@ CallbackReturn SafetyNode::on_deactivate(const rclcpp_lifecycle::State &) {
     mux_status_sub_.reset();
     odom_sub_.reset();
     srv_estop_.reset();
+    srv_estop_reset_.reset();
     motor_pub_.reset();
     robot_status_pub_.reset();
 
@@ -103,6 +124,7 @@ CallbackReturn SafetyNode::on_cleanup(const rclcpp_lifecycle::State &) {
     mux_status_sub_.reset();
     odom_sub_.reset();
     srv_estop_.reset();
+    srv_estop_reset_.reset();
     motor_pub_.reset();
     robot_status_pub_.reset();
 
@@ -146,17 +168,21 @@ void SafetyNode::publish_stop() {
 }
 
 void SafetyNode::publish_global_status() {
+    // Проверяем Lifecycle-узел
     if (!robot_status_pub_->is_activated()) {return;}
+
     std_msgs::msg::String msg;
 
+    // Жёсткая иерархия приоритетов статуса с использованием конвертера
     if (e_stop_active_ || current_state_ == SafetyState::EMERGENCY) {
-        msg.data = "EMERGENCY";
+        msg.data = safety_state_to_string(SafetyState::EMERGENCY);
     } else if (current_state_ == SafetyState::PROTECTIVE_STOP) {
-        msg.data = "PROTECTIVE_STOP";
+        msg.data = safety_state_to_string(SafetyState::PROTECTIVE_STOP);
     } else if (current_state_ == SafetyState::DEGRADED) {
-        msg.data = "DEGRADED_" + last_mux_status_;
+        msg.data = safety_state_to_string(SafetyState::DEGRADED);
     } else {
-        msg.data = last_mux_status_;
+        // Если всё железо в порядке, транслируем, что делает математика (TwistMux)
+        msg.data = last_mux_status_.empty() ? "UNKNOWN" : last_mux_status_;
     }
 
     robot_status_pub_->publish(msg);
@@ -217,7 +243,7 @@ void SafetyNode::health_state_callback(const std_msgs::msg::String::SharedPtr ms
     } else if (fdir_state == "DEGRADED") {
         current_state_ = SafetyState::DEGRADED;
         set_hardware_contactors(true);
-    } else if (fdir_state == "NORMAL" && !e_stop_active_) {
+    } else if (fdir_state == "SOFTWARE_OK" && !e_stop_active_) {
         current_state_ = SafetyState::NORMAL;
         set_hardware_contactors(true);
     }
@@ -239,6 +265,7 @@ void SafetyNode::odom_callback(const nav_msgs::msg::Odometry::SharedPtr msg) {
         current_state_ = SafetyState::EMERGENCY;
         set_hardware_contactors(false);
         publish_global_status();
+
         RCLCPP_FATAL(
             get_logger(), "ESCALATION: Robot moving during Soft Stop! Hard E-STOP triggered!");
     }
@@ -254,9 +281,29 @@ void SafetyNode::estop_callback(
     publish_stop();
     set_hardware_contactors(false);
     publish_global_status();
+
     response->success = true;
     response->message = "EMERGENCY STOP (LEVEL 2) ACTIVATED!";
     RCLCPP_FATAL(get_logger(), "!!! LEVEL 2 E-STOP: MOTORS DE-ENERGIZED !!!");
+}
+
+void SafetyNode::estop_reset_callback(
+    const std::shared_ptr<std_srvs::srv::Trigger::Request>,
+    std::shared_ptr<std_srvs::srv::Trigger::Response> response) {
+    if (current_state_ == SafetyState::EMERGENCY || e_stop_active_) {
+        current_state_ = SafetyState::NORMAL;  // Сбрасываем состояние
+        e_stop_active_ = false;
+        set_hardware_contactors(true);
+
+        publish_global_status();
+
+        RCLCPP_INFO(this->get_logger(), "Safety system RESET. Ready for operation.");
+        response->success = true;
+        response->message = "System recovered from EMERGENCY. Manual control enabled.";
+    } else {
+        response->success = false;
+        response->message = "Reset ignored: System is not in EMERGENCY state.";
+    }
 }
 
 void SafetyNode::produce_diagnostics(diagnostic_updater::DiagnosticStatusWrapper &stat) {

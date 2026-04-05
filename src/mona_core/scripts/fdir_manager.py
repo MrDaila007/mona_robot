@@ -43,7 +43,7 @@ COLOR_RESET = '\033[0m'
 
 class SystemHealthState:
     SYSTEM_STARTUP = "SYSTEM_STARTUP"  # Идет инициализация. Контакторы ВЫКЛ.
-    NORMAL = "NORMAL"          # Нормальная работа
+    SOFTWARE_OK = "SOFTWARE_OK"          # Нормальная работа
     DEGRADED = "DEGRADED"        # Едем медленнее
     RECONFIGURED = "RECONFIGURED"    # Едем задом
     PROTECTIVE_STOP = "PROTECTIVE_STOP"  # Стоим, ждём ребута PRIMARY Узла
@@ -259,7 +259,7 @@ class FDIRManager(Node):
 
     def health_eval_tick(self):
         current_time = time.time()
-        global_state = SystemHealthState.NORMAL
+        global_state = SystemHealthState.SOFTWARE_OK
 
         is_starting = False
         all_active = True

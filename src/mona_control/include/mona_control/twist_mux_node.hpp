@@ -12,14 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-
 #ifndef MONA_CONTROL__TWIST_MUX_NODE_HPP_
 #define MONA_CONTROL__TWIST_MUX_NODE_HPP_
 
+#include <atomic>
 #include <chrono>
 #include <memory>
 #include <mutex>
 #include <string>
+#include <cmath>
 
 #include "rclcpp/rclcpp.hpp"
 #include "rclcpp_action/rclcpp_action.hpp"
@@ -35,7 +36,8 @@ enum class MuxState {
     UCFG,  // Unconfigured
     IDLE,  // Нет команд
     MANUAL,  // Управляет человек
-    AUTONOMOUS  // Управляет сервер
+    AUTONOMOUS,  // Управляет сервер
+    BLOCKED  // Заблокировано системой безопасности (E-STOP)
 };
 
 // Алиас для удобства работы с жизненным циклом
@@ -54,13 +56,17 @@ protected:
     CallbackReturn on_shutdown(const rclcpp_lifecycle::State &state) override;
 
 private:
+    std::string mux_state_to_string(MuxState state);
+
     void nav_callback(const geometry_msgs::msg::Twist::SharedPtr msg);
     void teleop_callback(const geometry_msgs::msg::Twist::SharedPtr msg);
+    void robot_status_callback(const std_msgs::msg::String::SharedPtr msg);
     void control_loop();
     void publish_status(std::string status_text);
 
     rclcpp::Subscription<geometry_msgs::msg::Twist>::SharedPtr nav_sub_;
     rclcpp::Subscription<geometry_msgs::msg::Twist>::SharedPtr teleop_sub_;
+    rclcpp::Subscription<std_msgs::msg::String>::SharedPtr robot_status_sub_;
     rclcpp_lifecycle::LifecyclePublisher<geometry_msgs::msg::Twist>::SharedPtr smooth_pub_;
     rclcpp_lifecycle::LifecyclePublisher<std_msgs::msg::String>::SharedPtr status_pub_;
 
@@ -77,10 +83,11 @@ private:
     rclcpp::Time last_nav_time_;
 
     MuxState current_state_;
+    std::atomic<bool> is_safety_blocked_{false};
 
     double manual_timeout_;
     double cmd_timeout_;
-    double alpha_;
+    double ema_alpha_;
 };
 }  // namespace mona_control
 
