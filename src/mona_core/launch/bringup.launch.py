@@ -133,16 +133,20 @@ def generate_launch_description():
         output='screen'
     )
 
-#    safety_node = LifecycleNode(
-#        package='mona_core',
-#        executable='safety_node',
-#        name='safety_node',
-#        namespace='',
-#        output='screen',
-#        parameters=[{'use_sim_time': use_sim_time}]
-#    )
+    # 6. Узел Foxglove Bridge для связи с веб-интерфейсом
+    foxglove_bridge_node = Node(
+        package='foxglove_bridge',
+        executable='foxglove_bridge',
+        name='foxglove_bridge',
+        parameters=[{
+            'port': 8765,
+            'send_buffer_limit': 100000000,  # Увеличиваем буфер для передачи облаков точек (лидаров)
+            'use_sim_time': use_sim_time
+        }],
+        output='screen'
+    )
 
-    # 6. ZERO-COPY COMPONENT CONTAINER
+    # 7. ZERO-COPY COMPONENT CONTAINER
     # Запускаем мультипоточный контейнер, в который загружаем C++ плагины
     mona_core_container = ComposableNodeContainer(
         name='mona_core_container',
@@ -175,7 +179,7 @@ def generate_launch_description():
         ]
     )
 
-    # 7. FDIR Manager
+    # 8. FDIR Manager
     fdir_manager = Node(
         package='mona_core',
         executable='fdir_manager.py',
@@ -184,7 +188,7 @@ def generate_launch_description():
         parameters=[{'use_sim_time': use_sim_time}]
     )
 
-    # 8. Perception
+    # 9. Perception
     perception_launch = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
             os.path.join(pkg_mona_perception, 'launch', 'perception.launch.py')
@@ -192,7 +196,7 @@ def generate_launch_description():
         launch_arguments={'use_sim_time': use_sim_time}.items(),
     )
 
-    # 9. Инициализация узла robot_localization
+    # 10. Инициализация узла robot_localization
     ekf_node = Node(
         package='robot_localization',
         executable='ekf_node',
@@ -202,7 +206,7 @@ def generate_launch_description():
         remappings=[('/odometry/filtered', '/odom_filtered')]
     )
 
-    # 10. Интеграция подсистемы SLAM
+    # 11. Интеграция подсистемы SLAM
     slam_launch = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
             os.path.join(pkg_mona_core, 'launch', 'slam.launch.py')
@@ -210,7 +214,7 @@ def generate_launch_description():
         launch_arguments={'use_sim_time': use_sim_time}.items(),
     )
 
-    # 11. Автономная навигация Nav2
+    # 12. Автономная навигация Nav2
     navigation_launch = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
             os.path.join(pkg_mona_core, 'launch', 'navigation.launch.py')
@@ -218,7 +222,7 @@ def generate_launch_description():
         launch_arguments={'use_sim_time': use_sim_time}.items(),
     )
 
-    # 12. Ручное управление (Геймпад)
+    # 13. Ручное управление (Геймпад)
     teleop_launch = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
             os.path.join(pkg_mona_core, 'launch', 'teleop.launch.py')
@@ -226,7 +230,7 @@ def generate_launch_description():
         condition=IfCondition(use_gamepad)      # Запустится ТОЛЬКО если use_gamepad:=true
     )
 
-    # 13. Rosbag
+    # 14. Rosbag
     rosbag_record = ExecuteProcess(
         cmd=[
             'ros2', 'bag', 'record',
@@ -249,6 +253,7 @@ def generate_launch_description():
         spawn_entity,
         bridge,
         node_rviz,
+        foxglove_bridge_node,
         mona_core_container,
         perception_launch,
         fdir_manager,
