@@ -104,17 +104,17 @@ def generate_launch_description():
         package='ros_gz_bridge',
         executable='parameter_bridge',
         arguments=[
-            # '/cmd_vel@geometry_msgs/msg/Twist]ignition.msgs.Twist',
             '/hardware/motor_cmd@geometry_msgs/msg/Twist]ignition.msgs.Twist',
             '/odom@nav_msgs/msg/Odometry[ignition.msgs.Odometry',
-            # '/tf@tf2_msgs/msg/TFMessage[ignition.msgs.Pose_V',
             '/joint_states@sensor_msgs/msg/JointState[ignition.msgs.Model',
             '/clock@rosgraph_msgs/msg/Clock[ignition.msgs.Clock',
             '/lidar_front/scan@sensor_msgs/msg/LaserScan[ignition.msgs.LaserScan',
             '/lidar_back/scan@sensor_msgs/msg/LaserScan[ignition.msgs.LaserScan',
             '/lidar_left/scan@sensor_msgs/msg/LaserScan[ignition.msgs.LaserScan',
             '/lidar_right/scan@sensor_msgs/msg/LaserScan[ignition.msgs.LaserScan',
-            '/imu/data@sensor_msgs/msg/Imu@ignition.msgs.IMU'
+            '/imu/data@sensor_msgs/msg/Imu@ignition.msgs.IMU',
+            '/camera/image_raw@sensor_msgs/msg/Image[ignition.msgs.Image',
+            '/camera/camera_info@sensor_msgs/msg/CameraInfo[ignition.msgs.CameraInfo'
         ],
         parameters=[{
             'use_sim_time': use_sim_time,

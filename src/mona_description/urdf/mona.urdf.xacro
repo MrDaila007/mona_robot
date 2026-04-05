@@ -20,6 +20,7 @@
   <xacro:include filename="wheel.xacro"/>
   <xacro:include filename="lidar.xacro"/>
   <xacro:include filename="imu.xacro"/>
+  <xacro:include filename="camera.xacro"/>
 
   <material name="orange">
     <color rgba="1.0 0.5 0.0 1.0"/>
@@ -104,6 +105,11 @@
   <xacro:imu_sensor name="imu" parent="base_link">
     <origin xyz="0 0 0" rpy="0 0 0"/>
   </xacro:imu_sensor>
+
+  <!-- CAMERA -->
+  <xacro:camera_sensor name="camera" parent="base_link">
+    <origin xyz="${base_length/2} 0 -0.065" rpy="0 0 0"/>
+  </xacro:camera_sensor>
   
   <!-- LED -->
   <link name="led_strip_link">
