@@ -293,7 +293,7 @@
       "first": "3D!1",
       "second": "RosOut!1d6hnky",
       "direction": "column",
-      "splitPercentage": 75.0
+      "splitPercentage": 75
     },
     "second": {
       "first": {
@@ -308,7 +308,7 @@
                 "direction": "column"
               },
               "direction": "column",
-              "splitPercentage": 30.0
+              "splitPercentage": 30
             },
             "second": {
               "first": "CallService!EStop",
@@ -316,14 +316,14 @@
               "direction": "column"
             },
             "direction": "row",
-            "splitPercentage": 60.0
+            "splitPercentage": 60
           },
           "second": "Parameters!kvpas8",
           "direction": "column",
-          "splitPercentage": 60.0
+          "splitPercentage": 60
         },
         "direction": "row",
-        "splitPercentage": 50.0
+        "splitPercentage": 50
       },
       "second": {
         "first": "Plot!urq9o1",
@@ -331,15 +331,15 @@
           "first": "Plot!3hvimad",
           "second": "Plot!4by6c7o",
           "direction": "column",
-          "splitPercentage": 50.0
+          "splitPercentage": 50
         },
         "direction": "column",
         "splitPercentage": 33.33333333333333
       },
       "direction": "column",
-      "splitPercentage": 50.0
+      "splitPercentage": 50
     },
     "direction": "row",
-    "splitPercentage": 50.0
+    "splitPercentage": 50
   }
 }
