@@ -1,61 +1,66 @@
-### Настройка и отладка геймпада (DualSense / Xbox)
+# Gamepad Setup and Debugging (DualSense / Xbox)
 
-При подключении современных геймпадов (особенно Sony DualSense) по Bluetooth, ядро Linux распознает устройство как несколько виртуальных контроллеров. Драйвер разделяет физические кнопки, сенсорную панель (Touchpad) и гироскоп (Motion Sensors) на разные порты `/dev/input/js*`.
+> **Hardware Input Configuration**
+> 
+> When connecting modern gamepads (specifically the Sony DualSense) via Bluetooth, the Linux kernel often enumerates the device as multiple virtual controllers. The kernel driver maps the physical buttons, the touchpad, and the motion sensors (gyroscope/accelerometer) to completely separate `/dev/input/js*` ports.
 
-Если в конфигурации запуска ошибочно указать порт гироскопа, узел `joy_node` начнет публиковать данные с частотой 200-300 Гц, перегружая сеть DDS и вызывая ложные срабатывания экстренного торможения (тайм-ауты в `twist_mux`).
+If the simulation is mistakenly pointed to the motion sensor port, the `joy_node` will flood the ROS 2 DDS network with data at 200-300 Hz, causing severe bandwidth saturation and triggering false positive timeouts within the `twist_mux` safety logic.
 
-#### Как найти правильный порт контроллера
+## Locating the Correct Controller Port
 
-**Шаг 1: Установите утилиты для тестирования джойстиков**
-Для Ubuntu/Debian:
+**Step 1: Install Joystick Testing Utilities**
+For Ubuntu/Debian:
 ```bash
-sudo apt install joystick
+sudo apt-get update && sudo apt-get install joystick
 ```
-Для Arch Linux:
+For Arch Linux:
 ```bash
-sudo pacman -S joyutils
+sudo pacman -Syu joyutils
 ```
 
-**Шаг 2: Посмотрите список доступных устройств**
+**Step 2: List Available Input Devices**
 ```bash
 ls /dev/input/ | grep js
 
-# Пример вывода:
-js0
-js1
+# Expected Output Example:
+# js0
+# js1
 ```
 
-**Шаг 3: Протестируйте устройства по очереди**
-Запустите `jstest` для первого порта и подвигайте стиками / понажимайте кнопки:
+**Step 3: Test and Identify the Correct Port**
+Execute `jstest` for the first available port. Move the analog sticks and press the physical buttons to verify response data:
 ```bash
 jstest /dev/input/js0
 
-# Пример для физических кнопок
+# Example 1: The Correct Port (Physical Buttons & Axes)
 Driver version is 2.1.0.
 Joystick (DualSense Wireless Controller) has 8 axes (X, Y, Z, Rx, Ry, Rz, Hat0X, Hat0Y)
 and 13 buttons (BtnA, BtnB, BtnX, BtnY, BtnTL, BtnTR, BtnTL2, BtnTR2, BtnSelect, BtnStart, BtnMode, BtnThumbL, BtnThumbR).
 Testing ... (interrupt to exit)
 Axes:  0:  1032  1:  -517  2:-32767  3:   774  4: -1291  5:-32767  6:     0  7:     0 Buttons:  0:off  1:off  2:off  3:off  4:off  5:off  6:off  7:off  8:off  9:off 10:off 11:off 12:off
 
-# Пример для гироскопа (Motion Sensors)
+# Example 2: The Incorrect Port (Motion Sensors / Gyroscope)
 Driver version is 2.1.0.
 Joystick (DualSense Wireless Controller Motion Sensors) has 6 axes (X, Y, Z, Rx, Ry, Rz)
 and 0 buttons ().
 Testing ... (interrupt to exit)
 Axes:  0:  -175  1:  8436  2:  1219  3:    -3  4:    -4  5:    -1
 ```
+_If you see "Motion Sensors" and rapidly fluctuating axes without touching the controller, **do not use this port**._
 
-**Шаг 4: Обновите Launch-файл**
-Найдя правильный порт (в примере выше это `js0`), укажите его в `src/mona_core/launch/teleop.launch.py`:
+**Step 4: Update the Configuration** If your physical controller is mapped to `js1` instead of the default `js0`, update the `dev` parameter in `src/mona_core/launch/teleop.launch.py`.
 ```python
-		Node(
-            package='joy',
-            executable='joy_node',
-            name='joy_node',
-            parameters=[{
-                'dev': '/dev/input/js0',  # Укажите проверенный порт здесь
-                'deadzone': 0.05,
-                'autorepeat_rate': 20.0,
-            }]
-        ),
+Node(
+	package="joy",
+	executable="joy_node",
+	name="joy_node",
+	parameters=[
+		{
+			"dev": "/dev/input/js0",  # Please specify the correct port here.
+			"deadzone": 0.05,
+			"autorepeat_rate": 50.0,
+			"use_sim_time": use_sim_time,
+		}
+	],
+),
 ```
