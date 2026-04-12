@@ -18,6 +18,7 @@
 
 #include <memory>
 #include <vector>
+#include <string>
 
 #include "rclcpp/rclcpp.hpp"
 #include "rclcpp_lifecycle/lifecycle_node.hpp"
@@ -38,7 +39,7 @@
 
 namespace mona_perception
 {
-// Алиас для удобства работы с жизненным циклом
+// Alias for standard lifecycle return types
 using CallbackReturn = rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn;
 
 class LidarMergerNode : public rclcpp_lifecycle::LifecycleNode {
@@ -46,7 +47,7 @@ public:
     explicit LidarMergerNode(const rclcpp::NodeOptions &options);
     virtual ~LidarMergerNode();
 
-    // Переопределение методов жизненного цикла (Lifecycle)
+    // Lifecycle transition overrides
     CallbackReturn on_configure(const rclcpp_lifecycle::State &state) override;
     CallbackReturn on_activate(const rclcpp_lifecycle::State &state) override;
     CallbackReturn on_deactivate(const rclcpp_lifecycle::State &state) override;
@@ -55,7 +56,7 @@ public:
     CallbackReturn on_error(const rclcpp_lifecycle::State &previous_state) override;
 
 private:
-    // Коллбэки
+    // Callbacks
     void power_callback(const std_msgs::msg::Bool::SharedPtr msg);
 
     void fused_callback(
@@ -68,20 +69,21 @@ private:
         sensor_msgs::msg::PointCloud2 &base,
         const sensor_msgs::msg::PointCloud2 &add);
 
-    // Переменные состояния
+    // State variables
     bool has_power_ = true;
+    std::string target_frame_;
     rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr power_sub_;
 
-    // TF и проекции
+    // TF and projections
     laser_geometry::LaserProjection projector_;
     std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
     std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
 
-    // Подписчики message_filters привязываются к LifecycleNode
+    // message_filters subscribers bound to the LifecycleNode
     message_filters::Subscriber<sensor_msgs::msg::LaserScan, rclcpp_lifecycle::LifecycleNode>
     sub_front_, sub_back_, sub_left_, sub_right_;
 
-    // Политика синхронизации
+    // Synchronization policy
     typedef message_filters::sync_policies::ApproximateTime<
             sensor_msgs::msg::LaserScan, sensor_msgs::msg::LaserScan,
             sensor_msgs::msg::LaserScan, sensor_msgs::msg::LaserScan> SyncPolicy;
