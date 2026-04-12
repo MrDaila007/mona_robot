@@ -22,24 +22,28 @@ on:
 
 jobs:
   build-and-test:
+    strategy:
+      matrix:
+        os: [ubuntu-22.04, ubuntu-24.04]
+    name: Build & Test on ${{ matrix.os }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
 
-      # 1. Настройка Buildx (нужен для кэша)
+      # 1. Setup Docker Buildx (Required for caching)
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
 
-      # 2. Сборка образа через Buildx с кэшированием
+      # 2. Build Docker Image via Buildx with caching
       - name: Build Docker Image
         uses: docker/build-push-action@v7
         with:
           context: .
           file: Dockerfile
           tags: mona_ci:latest
-          # Выгружаем образ в обычный Docker демон, 
-          # чтобы следующий шаг (docker run) его увидел
+          # Export the image to the standard Docker daemon
+          # so the subsequent step (docker run) can access it
           load: true
           build-args: |
             USER_UID=1001
@@ -48,13 +52,13 @@ jobs:
           cache-to: type=gha,mode=max
           no-cache: ${{ github.event_name == 'schedule' }}
 
-      # 3. Выполнение скрипта тестирования внутри изолированного контейнера
+      # 3. Execute the testing script within an isolated container
       - name: Run Global CI Script inside Docker
         run: |
-          # Создаем папку build на хосте до монтирования, чтобы избежать проблем с правами доступа
+          # Create the build directory on the host prior to mounting to prevent permission issues
           mkdir -p ${{ github.workspace }}/build
           
-          # Запускаем контейнер. Папка build монтируется для извлечения XML-отчётов.
+          # Run the container. The build directory is mounted to extract XML test reports.
           docker run --rm \
             -v ${{ github.workspace }}/src:/home/mona_dev/mona_ws/src \
             -v ${{ github.workspace }}/scripts:/home/mona_dev/mona_ws/scripts \
@@ -63,18 +67,19 @@ jobs:
             mona_ci:latest \
             /bin/bash -c "cd /home/mona_dev/mona_ws && ./scripts/local_ci.bash"
       
-      # 4. Публикация отчётов в интерфейсе GitHub
+      # 4. Publish Test Reports to the GitHub UI
       - name: Publish Test Report
-        uses: mikepenz/action-junit-report@v4
-        if: success() || failure() # Шаг должен выполниться, даже если тесты упали
+        uses: mikepenz/action-junit-report@v6
+        if: success() || failure() # Step must execute even if tests fail
         with:
           report_paths: 'build/**/test_results/**/*.xml'
           check_name: "ROS 2 Test Report"
       
-      # 5. Загрузка отчёта о покрытии в Codecov
-      - name: Upload coverage reports to Codecov
-        uses: codecov/codecov-action@v4
+      # 5. Upload coverage report to Codecov
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v6
+        if: env.CODECOV_TOKEN != null # Executes only if the CODECOV_TOKEN secret is provisioned
         with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-          files: ./build/coverage.info
+          files: build/coverage.info
           fail_ci_if_error: false
+          token: ${{ secrets.CODECOV_TOKEN }}

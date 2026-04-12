@@ -1,6 +1,6 @@
 # MONA: Modular Open Navigating AMR
 
-> Проект автономного мобильного робота для складской логистики. Система построена на базе ROS 2 Humble и использует контейнеризированную среду разработки для гарантии воспроизводимости кода.
+> An Autonomous Mobile Robot (AMR) project designed for warehouse logistics. Built on ROS 2 Humble, utilizing a strictly containerized swarm architecture to guarantee reproducibility and scalability.
 
 [![CI Build](https://github.com/vladubase/mona_robot/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/vladubase/mona_robot/actions/workflows/ci.yml)
 [![codecov](https://codecov.io/github/vladubase/mona_robot/graph/badge.svg?token=574IVKN5L6)](https://codecov.io/github/vladubase/mona_robot)
@@ -10,72 +10,102 @@
 [![OpenSSF Best Practices](https://www.bestpractices.dev/projects/11949/badge)](https://www.bestpractices.dev/projects/11949)
 
 ![Mona Robot Simulation Preview](docs/images/mona_gazebo_preview.png)
-## О проекте
-**MONA** (Modular Open Navigating AMR) — масштабируемая архитектура управления флотом роботов. Основной упор сделан на безопасность (Safety-Critical), аппаратное резервирование и отказоустойчивость (FDIR) в соответствии с индустриальными стандартами.
 
+## About the Project
+**MONA** (Modular Open Navigating AMR) is a scalable robot fleet management architecture. The primary focus is on safety-critical operations, hardware redundancy, and fault tolerance (FDIR) in compliance with industrial standards.
+
+Within its microservice architecture, MONA functions as an Edge Agent in the distributed [**LISA (Logistics Intelligence & Swarm API)**](https://github.com/vladubase/lisa_api) ecosystem. LISA acts as the central fleet orchestrator, while MONA provides hardware abstraction, local navigation, and sensory data processing.
+
+## MONA Robot Demonstration (YouTube)
 [![MONA Robot Demonstration](https://img.youtube.com/vi/lFO3V1oQM2w/maxresdefault.jpg)](https://www.youtube.com/watch?v=lFO3V1oQM2w)
 
-## Ключевые архитектурные особенности
-* **Промышленная безопасность (ISO 13849-1 / IEC 61508):** Гибридная архитектура FDIR (Fault Detection, Isolation, and Recovery). Аппаратное резервирование цепей отключения контакторов, Watchdog и EMA-сглаживание пиковых нагрузок тяжёлого шасси (при телеуправлении).
-* **Сетевой стек и DDS:** Прямой доступ к хост-сети (`network_mode: host`) с гибким управлением видимостью (`ROS_LOCALHOST_ONLY`) и жёсткой фиксацией реализации DDS (`rmw_fastrtps_cpp`).
-* **Fleet Management Ready:** Архитектура закладывает основу для будущей интеграции со стандартами управления флотом VDA 5050 и Open-RMF.
-* **Строгий CI/CD:** покрытие кода статическими анализаторами (Clang-Tidy, CPPCheck, Uncrustify, Flake8) и модульным тестированием (GTest).
+## Key Architectural Features
+* **Industrial Safety (ISO 13849-1 / IEC 61508):** Hybrid FDIR (Fault Detection, Isolation, and Recovery) architecture. Includes hardware redundancy for contactor cutoff circuits, Watchdog timers, and EMA (Exponential Moving Average) smoothing for heavy chassis peak loads during teleoperation.
+* **Network Stack and DDS:** Direct host network access (`network_mode: host`) with flexible visibility control (`ROS_LOCALHOST_ONLY`) and strict DDS implementation enforcement (`rmw_fastrtps_cpp`).
+* **Fleet Management Ready:** The architecture lays the foundation for future integration with VDA 5050 and Open-RMF fleet management standards (LISA).
+* **Strict CI/CD:** Comprehensive code coverage utilizing static analyzers (Clang-Tidy, CPPCheck, Uncrustify, Black, Flake8) and unit testing (GTest).
 
-## Структура репозитория (Component Architecture)
+## Component Architecture
+The project is built upon the ROS 2 component architecture (Zero-copy IPC), divided into the following logical domains:
+* **`mona_core/`** — Main orchestrator package (Bringup). Contains unified `.launch.py` files, global parameters (`.yaml`), maps, and the Python-based FDIR Lifecycle Manager.
+* **`mona_description/`** — Visual and physical robot representation (URDF, Xacro, 3D meshes).
+* **`mona_safety/`** — Hardware sentinel (`SafetyNode`). Handles Emergency Stops (E-Stop), controls hardware contactors, limits velocities during system degradation, and escalates faults upon unauthorized movement via odometry validation.
+* **`mona_control/`** — Dispatch module (Twist Mux). Responsible for routing commands from the gamepad and Nav2, EMA smoothing, velocity interpolation at 100 Hz, and preempting autonomous tasks during manual overrides.
+* **`mona_perception/`** — Perception module. Contains the `LidarMergerNode` for fusing data from multiple laser scanners into a single, unified point cloud.
 
-Проект построен на базе компонентной архитектуры ROS 2 (Zero-copy IPC), разделённой на логические домены:
-* **`mona_control/`** — Модуль диспетчеризации (Twist Mux). Отвечает за маршрутизацию команд от джойстика и Nav2, EMA-сглаживание, интерполяцию скоростей на 100 Гц и отмену (preemption) автономных задач при ручном перехвате.
-* **`mona_core/`** — Главный пакет-оркестратор (Bringup). Содержит единые `.launch.py` файлы, глобальные параметры (`.yaml`), карты и менеджер FDIR (Fault Detection, Isolation, and Recovery) на Python.
-* **`mona_description/`** — Визуальное и физическое представление робота (URDF, Xacro, 3D-меши).
-* **`mona_perception/`** — Модуль восприятия. Содержит `LidarMergerNode` для объединения данных с нескольких лазерных сканеров в единое облако точек.
-* **`mona_safety/`** — Аппаратный страж (`SafetyNode`). Обрабатывает экстренные остановки (E-Stop), управляет аппаратными контакторами, обрезает скорости при деградации системы и эскалирует аварии при несанкционированном движении по одометрии.
+## Quick Start
+The project utilizes strict environment isolation and a microservice architecture via Docker Compose.
 
-## Быстрый старт
-Проект использует строгую изоляцию среды через Docker.
+### Environment Setup
 ```bash
-# Клонирование репозитория
-git clone git@github.com:vladubase/mona_robot.git ~/mona_robot
-cd mona_robot
+# Clone the repository
+git clone git@github.com:vladubase/mona_robot.git ~/MONA_ws
+cd ~/MONA_ws
 
-# Запуск среды разработки (CPU-only, без GPU)
-docker compose up -d --build
-
-# Запуск с поддержкой NVIDIA GPU (через дополнительный compose-файл)
-# Перед этим убедитесь, что установлены драйверы и nvidia-container-toolkit,
-# а команда ниже успешно отрабатывает:
-#   nvidia-smi
-docker compose -f docker-compose.yml -f docker-compose.gpu.yml up -d --build
-
-# Вход в контейнер
-docker exec -it mona_dev bash
+# Build the base image
+make rebuild
 ```
 
-## Быстрый старт через Makefile
-Для удобства есть `Makefile` с короткими алиасами:
+The system supports multiple operational modes depending on your objective, utilizing our dedicated bash scripts:
+#### Mode 1: Full Visualization (Single Robot & Physics Debugging)
+Used for verifying collisions in Gazebo, wheel physics, and sensor outputs with full GUI support and gamepad teleoperation.
 ```bash
-# Запуск среды разработки (CPU-only, без GPU)
-make up      # alias: u
-
-# Запуск с поддержкой NVIDIA GPU
-make up-gpu  # alias: ug
-
-# Остановка контейнеров
-make down    # alias: d
+./scripts/start_1_robot.bash
 ```
 
-## Навигация по документации
-Вся техническая документация расположена в директории `docs/`.
+#### Mode 2: Swarm Load Testing (Headless Infrastructure)
+Used for testing the DDS network, fleet planners, and telemetry via Foxglove Studio. Physics are simulated without the graphical overhead.
+```bash
+# 1. Start the simulation infrastructure in the background (World & Clock Bridge)
+./scripts/start_world.bash
 
-| **Категория**                  | **Документ**                                                                                       | **Описание**                                                                                                                    |
-| ------------------------------ | -------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| **Введение (Getting Started)** | Сборка и запуск<br>**[01_SETUP.md](docs/01_SETUP.md)**                                             | Содержит инструкции по развертыванию Docker-контейнера, пробросу оборудования и параметрам запуска базовой симуляции.           |
-|                                | Рабочий процесс<br>**[04_WORKFLOW.md](docs/04_WORKFLOW.md)**                                       | Описывает стратегию ветвления (Git-flow) и базовые шаги локальной сборки пакетов.                                               |
-|                                | Документация по нодам и топикам ROS 2<br>**[05_NODES_AND_TOPICS.md](docs/05_NODES_AND_TOPICS.md)** | Содерит описание и инструкции по использованию нод и топиков, особенно Lifecycle и FDIR.                                        |
-|                                | Контрибьютинг<br>**[CONTRIBUTING.md](docs/CONTRIBUTING.md)**                                       | Правила участия в разработке, стандарты именования и оформления коммитов.                                                       |
-| **Архитектура (Architecture)** | Безопасность и FDIR<br>**[03_SAFETY_AND_FDIR.md](docs/03_SAFETY_AND_FDIR.md)**                     | Описание системы Fault Detection, Isolation, and Recovery и принципов аппаратного резервирования.                               |
-|                                | Сеть и интеграция<br>**[networking_and_fleet.md](docs/architecture/networking_and_fleet.md)**      | Описание конфигурации сетевого стека Docker (host mode), настроек DDS и подготовки архитектуры к стандартам VDA 5050.           |
-|                                | Одометрия и SLAM<br>**[mapping_and_odometry.md](docs/architecture/mapping_and_odometry.md)**       | Схема слияния данных сенсоров (EKF), описание TF-дерева и базовых узлов навигационного стека.                                   |
-| **Руководства (Guides)**       | Ручное управление<br>**[teleoperation.md](docs/guides/teleoperation.md)**                          | Описание работы Deadman Switch, маппинга осей DualSense и логики передачи команд скорости.                                      |
-|                                | Настройка геймпада<br>**[gamepad_setup.md](docs/guides/gamepad_setup.md)**                         | Описание принципа поиска и настройки геймпада.                                                                                  |
-|                                | Картирование<br>**[mapping_guide.md](docs/guides/mapping_guide.md)**                               | Инструкция по использованию slam_toolbox и различия между обновлением статической карты и работой динамической local_costmap.   |
-|                                | Стиль C++<br>**[02_CPP_GUIDE.md](docs/02_CPP_GUIDE.md)**                                           | Правила автоматического форматирования (Uncrustify), настройки линтеров и требования к написанию узлов в виде ROS 2 Components. |
+# 2. Deploy a swarm of robots (e.g., 5 agents) in a separate terminal.
+# Each will receive a unique namespace (mona_001 ... mona_005)
+./scripts/start_fleet.bash 5
+
+# 3. Monitor the fleet through Foxglove Studio.
+```
+
+#### Development Environment & Teardown
+For manual package compilation (`colcon build`), ROS CLI utilities, and linters, a dedicated development container is provided:
+```bash
+# Enter the isolated development environment
+docker compose up -d dev
+docker compose exec dev bash
+
+# Gracefully stop all robots, the simulation, and clean up networks
+make down
+```
+
+## Launch Arguments
+The primary robot launch file (`robot.launch.py`) supports flexible configuration via ROS 2 command-line arguments. In the Docker infrastructure, these parameters are handled automatically by the launch scripts.
+
+| Argument       | Default Value | Description & System Impact                                                                                                                                                          |
+| :------------- | :------------ | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `namespace`    | `mona_001`    | **Agent Isolation.** Defines the prefix for all topics, nodes, and parameters (e.g., `/mona_001/odom`). Critically important for Swarm deployment.                                   |
+| `headless`     | `true`        | **Console Mode.** When `true`, disables RViz2 and Gazebo GUI to conserve CPU/GPU resources. Used for server deployments and massive multi-agent simulations.                         |
+| `use_sim_time` | `true`        | **Time Synchronization.** When `true`, nodes utilize the simulation clock (`/clock` topic). Must be `true` for Gazebo simulation and `false` for real hardware.                      |
+| `use_gamepad`  | `false`       | **Teleoperation.** When `true`, activates `joy_node` and `teleop_twist_joy` to process gamepad commands (DualSense/Xbox). This input has the highest multiplexer priority over Nav2. |
+### Example: Manual Parameter Override
+If you need to bypass the bash scripts and launch a robot manually with specific arguments (e.g., enabling the GUI and gamepad support):
+```bash
+docker compose run --rm mona-robot ros2 launch mona_core robot.launch.py headless:=false use_gamepad:=true use_sim_time:=true
+```
+
+## Documentation Index
+All technical documentation is located in the `docs/` directory.
+
+| Category            | Document                                                              | Description                                                                                             |
+| ------------------- | --------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| **Getting Started** | **[01_SETUP](docs/01_SETUP.md)**                                      | Instructions for Docker container deployment, hardware passthrough, and base simulation parameters.     |
+|                     | **[02_WORKFLOW](02_WORKFLOW.md)**                                     | Describes the Git-flow branching strategy and local package build steps.                                |
+|                     | **[CONTRIBUTING](CONTRIBUTING.md)**                                   | Guidelines for contributing, naming conventions, and commit formatting standards.                       |
+| **Architecture**    | **[networking_and_fleet](docs/architecture/networking_and_fleet.md)** | Docker host mode network configuration, DDS settings, and VDA 5050 architecture preparation.            |
+|                     | **[mapping_and_odometry](docs/architecture/mapping_and_odometry.md)** | Sensor fusion diagram (EKF), TF tree description, and base navigation stack nodes.                      |
+|                     | **[nodes_and_topics](docs/architecture/nodes_and_topics)**            | Documentation on node interfaces and topics, specifically detailing Lifecycle and FDIR routing.         |
+|                     | **[safety_and_fdir](docs/architecture/safety_and_fdir)**              | Overview of the Fault Detection, Isolation, and Recovery system and hardware redundancy principles.     |
+| **Guides**          | **[cpp_guide](cpp_guide.md)**                             | Automatic formatting rules (Uncrustify), linter settings, and ROS 2 Component development requirements. |
+|                     | **[foxglove_guide](docs/guides/foxglove_guide.md)**                   |                                                                                                         |
+|                     | **[gamepad_setup](docs/guides/gamepad_setup.md)**                     | Principles for discovering and configuring input gamepads.                                              |
+|                     | **[teleoperation_guide](docs/guides/teleoperation_guide.md)**         | Deadman Switch operation, DualSense axis mapping, and velocity command routing logic.                   |
+|                     | **[mapping_guide](docs/guides/mapping_guide.md)**                     | Instructions for using `slam_toolbox` and differences between static maps and dynamic local costmaps.   |

@@ -1,11 +1,16 @@
-# === ROS 2 Build Artifacts ===
+# ==============================================================================
+# .gitignore
+# Purpose: Prevent local build artifacts, temp files, and IDE configurations
+#          from being tracked in the MONA repository.
+# ==============================================================================
+
+# --- ROS 2 Build Artifacts --- #
 build/
 install/
 log/
-# Temp files of tests
 test_results/
 
-# === Python ===
+# --- Python --- #
 __pycache__/
 *.py[cod]
 *$py.class
@@ -15,26 +20,25 @@ venv/
 .venv/
 *.egg-info/
 
-# === C++ ===
+# --- C++ --- #
 *.obj
 *.o
 *.a
 *.so
 *.dylib
 
-# === Editors & IDEs ===
-
-# FreeCAD temp
+# --- 3D CAD --- #
+# FreeCAD temporary backups
 *.FCBak
 
-# Obsidian
+# --- IDEs & Editors --- #
+# Obsidian knowledge base
 .obsidian/
 .trash/
 
 # VS Code
 .vscode/
-# If you want to share the launch settings, uncomment the line below and comment out the line above:
-# .vscode/*
+# Uncomment the lines below to share specific launch settings:
 # !.vscode/launch.json
 # !.vscode/tasks.json
 
@@ -42,11 +46,11 @@ venv/
 .idea/
 cmake-build-*/
 
-# Vim / Emacs / Sublime
+# Vim / Emacs / Sublime / OS-specific
 *~
 *.swp
 *.swo
 .DS_Store
 
-# === Documentation generated ===
+# --- Generated Documentation --- #
 docs/_build/

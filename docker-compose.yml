@@ -1,45 +1,62 @@
-services:
-  mona_dev:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      network: host
-      args:
-        USERNAME: ${USER:-mona_dev}
-        USER_UID: ${UID:-1000}
-        USER_GID: ${GID:-1000}
-    image: mona_robot:humble
-    container_name: mona_dev
+x-mona-base: &mona_base
+  build:
+    context: .
+    dockerfile: Dockerfile
+    network: host
+    args:
+      USERNAME: ${USER:-mona_dev}
+      USER_UID: ${UID:-1000}
+      USER_GID: ${GID:-1000}
+  image: mona_robot:humble
+
+  network_mode: host
+  ipc: host
+  pid: host
+  privileged: true
     
+  environment:
+    - DISPLAY=${DISPLAY}
+    - QT_X11_NO_MITSHM=1
+    - QT_QPA_PLATFORM=xcb
+    - ALSOFT_DRIVERS=null
+    - MESA_DEBUG=silent
+    - ROS_LOCALHOST_ONLY=0  # Allow visibility across containers
+    - RMW_IMPLEMENTATION=rmw_fastrtps_cpp
+    - ROS_DOMAIN_ID=50      # Isolate the swarm from other ROS networks
+  
+  volumes:
+    - ./src:/home/${USER:-mona_dev}/mona_ws/src
+    - ./scripts:/home/${USER:-mona_dev}/mona_ws/scripts
+    - ./configs:/home/${USER:-mona_dev}/mona_ws/configs
+    - /tmp/.X11-unix:/tmp/.X11-unix:rw
+    - ~/.Xauthority:/home/${USER:-mona_dev}/.Xauthority:rw
+    - /dev/input:/dev/input:ro
+    - /run/udev:/run/udev:ro
+  
+  devices:
+    - /dev/dri:/dev/dri
+
+
+services:
+  world:
+    <<: *mona_base
+    container_name: mona_world
+    command: ros2 launch mona_core world.launch.py headless:=false use_sim_time:=true
+  
+  mona-robot:
+    <<: *mona_base
+    # DO NOT specify container_name here.
+    # Docker will automatically name them during scaling.
+    # The command executes on top of our scripts/entrypoint.bash.
+    command: ros2 launch mona_core robot.launch.py headless:=true use_sim_time:=true use_gamepad:=true
     network_mode: host
     ipc: host
-    pid: host
-    privileged: true
-    
-    environment:
-      - DISPLAY=${DISPLAY}
-      - QT_X11_NO_MITSHM=1
-      - QT_QPA_PLATFORM=xcb
-      - ALSOFT_DRIVERS=null
-      - MESA_DEBUG=silent
-      - ROS_LOCALHOST_ONLY=1
-      - RMW_IMPLEMENTATION=rmw_fastrtps_cpp
-    
-    volumes:
-      - ./src:/home/${USER:-mona_dev}/mona_ws/src
-      - ./scripts:/home/${USER:-mona_dev}/mona_ws/scripts
-      - ./configs:/home/${USER:-mona_dev}/mona_ws/configs
-      - /tmp/.X11-unix:/tmp/.X11-unix:rw
-      - ~/.Xauthority:/home/${USER:-mona_dev}/.Xauthority:rw
-      - /dev/input:/dev/input:ro
-      - /run/udev:/run/udev:ro
-    
-    devices:
-      - /dev/dri:/dev/dri
-
-    ports:
-      - "8765:8765"   # Foxglove Bridge
-
+    depends_on:
+      - world
+  
+  dev:
+    <<: *mona_base
+    container_name: mona_dev_env
     command: sleep infinity
     tty: true
     stdin_open: true

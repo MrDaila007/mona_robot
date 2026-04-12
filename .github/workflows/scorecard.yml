@@ -13,9 +13,9 @@ jobs:
     name: Scorecard analysis
     runs-on: ubuntu-latest
     permissions:
-      # Нужно для загрузки результатов в Security tab
+      # Required to upload results to the GitHub Security tab
       security-events: write
-      # Нужно для публикации результатов для бейджа
+      # Required to publish results for the repository badge
       id-token: write
 
     steps:
@@ -29,10 +29,10 @@ jobs:
         with:
           results_file: results.sarif
           results_format: sarif
-          # Публикуем результаты, чтобы работал бейдж
+          # Publish results to enable the status badge
           publish_results: true
 
-      # Загружаем результаты в GitHub Security Tab
+      # Upload results to the GitHub Security Tab
       - name: "Upload to code-scanning"
         uses: github/codeql-action/upload-sarif@v4
         with:
