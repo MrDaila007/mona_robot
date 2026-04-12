@@ -5,7 +5,8 @@ slam_toolbox:
     odom_frame: odom
     map_frame: map
     base_frame: base_footprint
-    scan_topic: /scan
+    scan_topic: scan
+    qos_scan: 2
     
     mode: mapping
 

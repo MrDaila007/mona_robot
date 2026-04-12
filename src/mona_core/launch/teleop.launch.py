@@ -16,75 +16,82 @@
 
 from launch import LaunchDescription
 from launch_ros.actions import Node
+from launch.substitutions import LaunchConfiguration
+from launch.actions import DeclareLaunchArgument
 
-GAMEPAD = "DUALSENSE"
+GAMEPAD = "DUALSENSE"  # PS5
+# GAMEPAD = "DUALSHOCK"   # PS4
 # GAMEPAD = "XBOX"
 
 if GAMEPAD == "DUALSENSE":
-    # --- ОСИ (AXES) ---
-    # Диапазон значений: от -1.0 до 1.0
-    AXIS_LEFT_Y = 0  # Левый стик (Вверх/Вниз)
-    AXIS_LEFT_X = 1  # Левый стик (Влево/Вправо)
-    AXIS_L2 = 2  # Левый курок (Аналоговый)
-    AXIS_RIGHT_X = 3  # Правый стик (Влево/Вправо)
-    AXIS_RIGHT_Y = 4  # Правый стик (Вверх/Вниз)
-    AXIS_R2 = 5  # Правый курок (Аналоговый)
-    AXIS_DPAD_X = 6  # Крестовина (Влево/Вправо)
-    AXIS_DPAD_Y = 7  # Крестовина (Вверх/Вниз)
+    # --- AXES ---
+    # Value range: -1.0 to 1.0
+    AXIS_LEFT_Y = 0  # Left stick (Up/Down)
+    AXIS_LEFT_X = 1  # Left stick (Left/Right)
+    AXIS_L2 = 2  # Left trigger (Analog)
+    AXIS_RIGHT_X = 3  # Right stick (Left/Right)
+    AXIS_RIGHT_Y = 4  # Right stick (Up/Down)
+    AXIS_R2 = 5  # Right trigger (Analog)
+    AXIS_DPAD_X = 6  # D-Pad (Left/Right)
+    AXIS_DPAD_Y = 7  # D-Pad (Up/Down)
 
-    # --- КНОПКИ (BUTTONS) ---
-    # Значения: 0 (отпущена) или 1 (нажата)
-    BTN_CROSS = 0  # Крестик (X)
-    BTN_CIRCLE = 1  # Кружок (O)
-    BTN_TRIANGLE = 2  # Треугольник (△)
-    BTN_SQUARE = 3  # Квадрат (□)
+    # --- BUTTONS ---
+    # Values: 0 (released) or 1 (pressed)
+    BTN_CROSS = 0  # Cross (X)
+    BTN_CIRCLE = 1  # Circle (O)
+    BTN_TRIANGLE = 2  # Triangle (△)
+    BTN_SQUARE = 3  # Square (□)
 
-    BTN_L1 = 4  # Левый верхний бампер (L1)
-    BTN_R1 = 5  # Правый верхний бампер (R1)
-    BTN_L2 = 6  # Левый нижний курок (L2 - как цифровая кнопка)
-    BTN_R2 = 7  # Правый нижний курок (R2 - как цифровая кнопка)
+    BTN_L1 = 4  # Left bumper (L1)
+    BTN_R1 = 5  # Right bumper (R1)
+    BTN_L2 = 6  # Left trigger (L2 - digital)
+    BTN_R2 = 7  # Right trigger (R2 - digital)
 
-    BTN_CREATE = 8  # Кнопка Create/Share (слева от тачпада)
-    BTN_OPTIONS = 9  # Кнопка Options (справа от тачпада)
-    BTN_PS = 10  # Кнопка PlayStation (Логотип по центру)
+    BTN_CREATE = 8  # Create/Share button (left of touchpad)
+    BTN_OPTIONS = 9  # Options button (right of touchpad)
+    BTN_PS = 10  # PlayStation button (Center logo)
 
-    BTN_L3 = 11  # Нажатие на левый стик
-    BTN_R3 = 12  # Нажатие на правый стик
-    BTN_TOUCHPAD = 13  # Нажатие на саму сенсорную панель
+    BTN_L3 = 11  # Left stick click (L3)
+    BTN_R3 = 12  # Right stick click (R3)
+    BTN_TOUCHPAD = 13  # Touchpad click
 
 
 def generate_launch_description():
-    return LaunchDescription([
-        Node(
-            package='joy',
-            executable='joy_node',
-            name='joy_node',
-            parameters=[{
-                'dev': '/dev/input/js0',
-                'deadzone': 0.05,
-                'autorepeat_rate': 50.0,
-            }]
-        ),
+    use_sim_time = LaunchConfiguration("use_sim_time", default="true")
 
-        Node(
-            package='teleop_twist_joy',
-            executable='teleop_node',
-            name='teleop_twist_joy_node',
-            parameters=[{
-                'axis_linear': {'x': AXIS_LEFT_X, 'y': AXIS_LEFT_Y},
-                'axis_angular': {'yaw': AXIS_RIGHT_X},
-
-                'scale_linear': {'x': 0.5, 'y': 0.5},
-                'scale_angular': {'yaw': 0.5},
-
-                'enable_button': BTN_L2,
-
-                'enable_turbo_button': BTN_R2,
-                'scale_linear_turbo': {'x': 1.0, 'y': 1.0},
-                'scale_angular_turbo': {'yaw': 1.0}
-            }],
-            remappings=[
-                ('/cmd_vel', '/cmd_teleop')
-            ]
-        )
-    ])
+    return LaunchDescription(
+        [
+            Node(
+                package="joy",
+                executable="joy_node",
+                name="joy_node",
+                parameters=[
+                    {
+                        "dev": "/dev/input/js0",
+                        "deadzone": 0.05,
+                        "autorepeat_rate": 50.0,
+                        "use_sim_time": use_sim_time,
+                    }
+                ],
+            ),
+            Node(
+                package="teleop_twist_joy",
+                executable="teleop_node",
+                name="teleop_twist_joy_node",
+                parameters=[
+                    {
+                        "axis_linear": {"x": AXIS_LEFT_X, "y": AXIS_LEFT_Y},
+                        "axis_angular": {"yaw": AXIS_RIGHT_X},
+                        "scale_linear": {"x": 0.5, "y": 0.5},
+                        "scale_angular": {"yaw": 0.5},
+                        "enable_button": BTN_L2,
+                        "enable_turbo_button": BTN_R2,
+                        "scale_linear_turbo": {"x": 1.0, "y": 1.0},
+                        "scale_angular_turbo": {"yaw": 1.0},
+                        "use_sim_time": use_sim_time,
+                    }
+                ],
+                remappings=[("cmd_vel", "cmd_teleop")],
+            ),
+        ]
+    )

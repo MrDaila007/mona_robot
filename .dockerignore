@@ -1,21 +1,31 @@
-# Игнорируем артефакты сборки
+# ==============================================================================
+# .dockerignore
+# Purpose: Exclude unnecessary files from the Docker build context to reduce
+#          image size and prevent cache invalidation.
+# ==============================================================================
+
+# --- Build Artifacts --- #
 build/
 install/
 log/
 test_results/
 
-# Игнорируем Git историю (в образе она не нужна)
+# --- Version Control --- #
 .git/
+.gitignore
 .github/
 
-# Игнорируем настройки IDE
+# --- IDE & Editor Settings --- #
 .vscode/
 .idea/
 .obsidian/
 
-# Игнорируем документацию и сам Dockerfile
+# --- Documentation & CI/CD --- #
 docs/
 Dockerfile
-docker-compose.yml
+docker-compose*.yml
+Makefile
 README.md
-LICENCE
+SECURITY.md
+CONTRIBUTING.md
+LICENSE

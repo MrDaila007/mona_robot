@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+
 #ifndef MONA_CONTROL__TWIST_MUX_NODE_HPP_
 #define MONA_CONTROL__TWIST_MUX_NODE_HPP_
 
@@ -31,16 +32,16 @@
 
 namespace mona_control
 {
-// Состояния мультиплексора
+// Multiplexer priority and health states
 enum class MuxState {
     UCFG,  // Unconfigured
-    IDLE,  // Нет команд
-    MANUAL,  // Управляет человек
-    AUTONOMOUS,  // Управляет сервер
-    BLOCKED  // Заблокировано системой безопасности (E-STOP)
+    IDLE,  // No active commands received
+    MANUAL,  // Human teleoperation active (High Priority)
+    AUTONOMOUS,  // Server/Navigation control active (Standard Priority)
+    BLOCKED  // Interlocked by the safety system (E-STOP)
 };
 
-// Алиас для удобства работы с жизненным циклом
+// Alias for standard lifecycle return types
 using CallbackReturn = rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn;
 
 class TwistMuxNode : public rclcpp_lifecycle::LifecycleNode {

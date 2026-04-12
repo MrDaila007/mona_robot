@@ -1,72 +1,97 @@
-# Настройка окружения и запуск (Environment Setup)
+# Environment Setup and Launch
 
 > **Environment as Code**
 > 
-> Среда разработки должна быть полностью детерминирована. Инфраструктура описана в Dockerfile.
+> The development environment must be fully deterministic. The infrastructure is defined entirely within the Docker Compose configuration. This document outlines the procedure for deploying the project within an isolated, microservice-based Docker ecosystem. The "Simulation First" approach ensures parity between development and production environments while minimizing dependencies on the host hardware. Utilizing a Swarm Architecture allows you to scale the number of active agents without reconfiguring the host system.
 
-Данный документ описывает процедуру развертывания проекта в изолированной среде Docker. Подход "Simulation First" обеспечивает идентичность сред разработки и минимизирует зависимость от аппаратного обеспечения хоста.
-
-## 1. Системные требования
+## 1. System Requirements
 * Git
-* Docker Engine (версия 24.0+)
-* Docker Compose (плагин V2)
+* Docker Engine (version 24.0+)
+* Docker Compose (V2 plugin)
 
-### 1.1. Настройка для Linux (Ubuntu/Arch Linux)
-Установка Docker Engine через официальный скрипт:
+### 1.1. Linux Setup (Ubuntu / Arch Linux)
+Install Docker Engine via the official convenience script:
 ```bash
 curl -fsSL [https://get.docker.com](https://get.docker.com) -o get-docker.sh
 sudo sh get-docker.sh
 sudo usermod -aG docker $USER
 newgrp docker
 ```
-Примечание: Убедитесь, что установлены пакеты для работы со встроенной графикой (например, `mesa`).
+Note: Ensure that packages required for integrated graphics (e.g., `mesa`) are installed on your host system to support hardware acceleration.
 
-### 1.2. Настройка для Windows 11 (WSL2)
-1. Установите Docker Desktop для Windows.
-2. В настройках Docker Desktop перейдите в раздел Settings -> Resources -> WSL Integration.
-3. Включите интеграцию для используемого дистрибутива Ubuntu (22.04 LTS).
-4. Перезапустите Docker Desktop. Установка Docker внутри терминала Ubuntu не требуется.
+### 1.2. Windows 11 Setup (WSL2)
+- Install Docker Desktop for Windows.
+- Navigate to **Settings -> Resources -> WSL Integration** within Docker Desktop.
+- Enable integration for your active WSL2 distribution (e.g., Ubuntu 22.04).
+- Run all subsequent build scripts exclusively from within the WSL2 terminal.
 
-## 2. Клонирование репозитория
+---
+
+## 2. Clonning repository
 ```bash
-git clone git@github.com:vladubase/mona_robot.git
-cd mona_robot
+git clone git@github.com:vladubase/mona_robot.git ~/MONA_ws
+cd MONA_ws
 ```
 
-## 3. Настройка сети и оборудования (docker-compose.yml)
+---
 
-### Область видимости ROS 2 (DDS)
-По умолчанию контейнер настроен на изоляцию трафика внутри вашего ПК, чтобы не перегружать локальную сеть тяжёлыми топиками. Если вам нужно подключить второй ноутбук для отладки или Rviz:
-1. Откройте `docker-compose.yml`.
-2. Измените значение переменной окружения `ROS_LOCALHOST_ONLY=1` на `ROS_LOCALHOST_ONLY=0`.
-3. Перезапустите контейнер: `make down && make up`.
+## 3. Cloud and Fleet Management
+Integration with the fleet management server [LISA (Logistics Intelligence & Swarm API)](https://github.com/vladubase/lisa_api) is achieved via MQTT bridges. This prevents heavy ROS 2 DDS traffic from leaking outside the local host network.
 
-### 4. Подключение геймпада (DualSense / Xbox)
-Система автоматически пробрасывает `/dev/input` в контейнер. Однако, на хост-машине (Linux) ваш пользователь должен иметь права на чтение устройств ввода:
+---
+
+## 4. Gamepad Integration (Sony / Xbox)
+The Docker container automatically mounts `/dev/input` from the host. However, your Linux user must possess read permissions for input devices:
+
 ```bash
 sudo usermod -aG input $USER
-# После этого необходимо выйти из системы и зайти снова (Log out / Log in)
+# You must log out and log back in for the group changes to take effect.
 ```
 
-## 5. Сборка и запуск контейнера
-При первом развертывании, а также при изменении конфигураций (`Dockerfile`, `docker-compose.yml`), необходимо выполнить полную сборку образа:
+---
+
+## 5. Build and Simulation Launch (Swarm Mode)
+The architecture consists of independent containerized services. The initial compilation of the ROS 2 Workspace occurs during the Docker image build phase.
+
+**1. Build the Docker Image (Required initially and upon dependency changes):**
 ```bash
+make rebuild
+# OR
 docker compose build --no-cache
-docker compose up -d --force-recreate
 ```
 
-Для последующих запусков достаточно использовать:
+**2. Launch the Simulation Environment:** Use the dedicated bash scripts to ensure proper synchronization of the global clock and staggered node initialization.
+
+Open **Terminal 1** to start the infrastructure (Gazebo Server and Global RViz):
 ```bash
-docker compose up -d
+./scripts/start_world.bash
 ```
 
-## 6. Разработка и тестирование
-Взаимодействие с ROS 2 и компиляция кода осуществляются исключительно внутри контейнера:
+Open **Terminal 2** to deploy the swarm (specify the desired number of agents):
 ```bash
-docker exec -it mona_dev bash
+# Deploys a fleet of 3 robots (mona_001, mona_002, mona_003)
+./scripts/start_fleet.bash 3
+```
 
-# Ограничиваем DDS локальным интерфейсом во избежание сетевых коллизий
-export ROS_LOCALHOST_ONLY=1
-ros2 daemon stop && ros2 daemon start
-./scripts/run_sim.bash
+Alternatively, for single-robot testing with gamepad teleoperation enabled:
+```bash
+./scripts/start_1_robot.bash
+```
+
+---
+
+## 6. Development and Testing
+For manual compilation of C++ code and execution of static analysis tools (Clang-Tidy, CPPCheck, Flake8), use the dedicated `dev` service.
+
+```bash
+# Start the development container in the background
+make up
+# Or for GPU-accelerated environments:
+make up-gpu
+
+# Attach to the container's bash shell
+docker compose exec dev bash
+
+# Inside the container, run the automated CI pipeline
+./scripts/local_ci.bash
 ```

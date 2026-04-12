@@ -29,23 +29,23 @@ install(
 )
 
 if(BUILD_TESTING)
-  # 1. Используем ручной поиск конкретных пакетов (вместо ament_lint_auto)
+  # 1. Use manual package discovery for specific linters (instead of ament_lint_auto)
   find_package(ament_cmake_xmllint    REQUIRED)
   find_package(ament_cmake_lint_cmake REQUIRED)
   find_package(ament_cmake_copyright  REQUIRED)
   find_package(ament_cmake_flake8     REQUIRED)
 
-  # 2. Запускаем каждый линтер вручную
-  # Проверка лицензий (Copyright)
+  # 2. Execute each linter manually
+  # Copyright verification
   ament_copyright()
 
-  # Python линтер с кастомным конфигом
+  # Python linter with custom configuration
   ament_flake8(CONFIG_FILE "${CMAKE_CURRENT_SOURCE_DIR}/../../configs/setup.cfg")
 
-  # XML (package, launch, xacro)
+  # XML syntax validation (package, launch, xacro)
   ament_xmllint()
 
-  # CMake стиль
+  # CMake style validation
   ament_lint_cmake()
 endif()
 

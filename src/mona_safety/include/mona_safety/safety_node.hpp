@@ -30,13 +30,23 @@
 
 namespace mona_safety
 {
+// Alias for standard lifecycle return types
 using CallbackReturn = rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn;
 
 enum class SafetyState {
     NORMAL,
-    DEGRADED,  // Проблемы с производительностью (медленный режим)
-    PROTECTIVE_STOP,  // Стоим, ждём ребута PRIMARY Узла
-    EMERGENCY  // E-STOP активен
+    DEGRADED,  // Performance issues detected (slow mode enabled)
+    PROTECTIVE_STOP,  // Vehicle stopped, waiting for a PRIMARY node to reboot
+    EMERGENCY  // E-STOP active (contactors physically opened)
+};
+
+enum class FdirCommand {
+    SYSTEM_STARTUP,
+    EMERGENCY,
+    PROTECTIVE_STOP,
+    DEGRADED,
+    SOFTWARE_OK,
+    UNKNOWN
 };
 
 class SafetyNode : public rclcpp_lifecycle::LifecycleNode {
@@ -82,7 +92,7 @@ private:
     rclcpp_lifecycle::LifecyclePublisher<std_msgs::msg::String>::SharedPtr robot_status_pub_;
     diagnostic_updater::Updater diagnostic_updater_;
 
-    // Безопасные состояние по умолчанию
+    // Default safe state on initialization
     SafetyState current_state_   = SafetyState::PROTECTIVE_STOP;
     std::string last_fdir_state_ = "INIT";
     std::string last_mux_status_ = "IDLE";

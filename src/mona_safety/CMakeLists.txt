@@ -31,7 +31,9 @@ find_package(std_srvs         REQUIRED)
 
 include_directories(include)
 
-# Сборка библиотеки компонента
+# ------------------------------------------------------------------------------
+# 1. Build the Component Library
+# ------------------------------------------------------------------------------
 add_library(safety_component SHARED
   src/safety_node.cpp
 )
@@ -41,7 +43,7 @@ target_include_directories(safety_component PUBLIC
   $<INSTALL_INTERFACE:include>
 )
 
-# Линкуем зависимости
+# Link dependencies
 ament_target_dependencies(safety_component
   rclcpp
   rclcpp_components
@@ -54,13 +56,15 @@ ament_target_dependencies(safety_component
   std_srvs
 )
 
-# Регистрируем плагин в системе ROS 2
+# Register the plugin within the ROS 2 component ecosystem
 rclcpp_components_register_node(safety_component
   PLUGIN "mona_safety::SafetyNode"
   EXECUTABLE safety_node
 )
 
-# Установка (install)
+# ------------------------------------------------------------------------------
+# 2. Install Targets
+# ------------------------------------------------------------------------------
 install(
   TARGETS safety_component safety_node
   ARCHIVE DESTINATION lib
@@ -73,9 +77,12 @@ install(
   DESTINATION include
 )
 
-# Тестирование и линтеры
+# ------------------------------------------------------------------------------
+# 3. Testing and Linting
+# ------------------------------------------------------------------------------
 if(BUILD_TESTING)
-  # 1. Используем ручной поиск конкретных пакетов (вместо ament_lint_auto)
+  # Use manual package discovery for linters (instead of ament_lint_auto)
+  # to guarantee strict compliance with enterprise QA standards.
   find_package(ament_cmake_gtest      REQUIRED)
   find_package(ament_cmake_cppcheck   REQUIRED)
   find_package(ament_cmake_cpplint    REQUIRED)
@@ -85,33 +92,30 @@ if(BUILD_TESTING)
   find_package(ament_cmake_copyright  REQUIRED)
   find_package(ament_cmake_flake8     REQUIRED)
 
-  # 2. Сборка GTest
+  # Build GTest suite
   ament_add_gtest(test_safety test/test_lifecycle_instantiation.cpp)
-
   target_link_libraries(test_safety safety_component)
-
   ament_target_dependencies(test_safety
     rclcpp
     rclcpp_lifecycle
   )
 
-  # 3. Запускаем линтеры
-  # C++ статический анализ и стиль
+  # Execute Linters
+  # C++ static analysis and style formatting
   ament_cppcheck()
   ament_cpplint()
-  # uncrustify с кастомным конфигом
   ament_uncrustify(CONFIG_FILE "${CMAKE_CURRENT_SOURCE_DIR}/../../configs/uncrustify.cfg")
 
-  # Проверка лицензий (Copyright)
+  # Copyright verification
   ament_copyright()
 
-  # Python линтер с кастомным конфигом
+  # Python linter with custom configuration
   ament_flake8(CONFIG_FILE "${CMAKE_CURRENT_SOURCE_DIR}/../../configs/setup.cfg")
 
-  # XML (package, launch, xacro)
+  # XML syntax validation (package, launch, xacro)
   ament_xmllint()
 
-  # CMake стиль
+  # CMake syntax formatting
   ament_lint_cmake()
 endif()
 

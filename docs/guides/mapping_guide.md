@@ -1,43 +1,54 @@
-# Руководство по картографированию (Mapping Pipeline)
-Данный документ описывает процесс запуска симуляции, генерации карты помещения и её сохранения для последующего использования в Nav2.
+# Mapping Pipeline Guide
 
-## 1. Запуск системы
-Перед запуском убедитесь, что рабочее пространство собрано, а переменные окружения проинициализированы.
+> **Warehouse Cartography**
+> 
+> This document outlines the procedure for launching the simulation, generating a 2D occupancy grid of the facility, and serializing the map artifacts for subsequent utilization by the Nav2 global planner.
+
+## 1. Infrastructure and Agent Initialization
+
+Ensure your workspace is fully built before initiating the mapping sequence. To prevent DDS cross-talk during mapping, ensure you operate within an isolated local network.
 ```bash
-# Обязательно ограничиваем DDS локальным интерфейсом
-export ROS_LOCALHOST_ONLY=1
-ros2 daemon stop && ros2 daemon start
-source install/setup.bash
+# Terminal 1: Launch the global simulation infrastructure
+./scripts/start_world.bash
 
-# Запуск полного пайплайна (Gazebo, Одометрия, EKF, SLAM, RViz2)
-./scripts/run_sim.bash
+# Terminal 2: Spawn a single mapping agent with gamepad support enabled
+./scripts/start_1_robot.bash
 ```
 
-## 2. Управление роботом
-SLAM Toolbox настроен на экономию вычислительных ресурсов и обновляет граф только при движении (`minimum_travel_distance: 0.1`). Для инициализации карты роботу необходимо начать движение.
+---
 
-Откройте новый терминал и запустите узел телеоперации:
+## 2. Controlling the Agent
+
+The `slam_toolbox` node is highly optimized for computational efficiency. It is configured to update the pose graph strictly when physical movement is detected (`minimum_travel_distance: 0.1`). To initialize the map, you must begin moving the robot.
+
+Use the connected gamepad (holding the L2 Deadman switch) or publish commands directly via the terminal:
 ```bash
-export ROS_LOCALHOST_ONLY=1
-source install/setup.bash
-ros2 topic pub -r 15 /cmd_vel_teleop geometry_msgs/msg/Twist "{linear: {x: 0.5, y: 0.0}, angular: {z: 0.5}}"
+# Terminal 3: Publish a continuous circular trajectory
+ros2 topic pub -r 15 /mona_001/cmd_teleop geometry_msgs/msg/Twist "{linear: {x: 0.5, y: 0.0}, angular: {z: 0.5}}"
 ```
 
-**Проверка в окне RViz2:**
-1. Установите **Fixed Frame** в значение `map`.
-2. Убедитесь, что отображается сетка `Map` и она расширяется вслед за движением робота.
-3. Убедитесь, что красные точки `LaserScan` ложатся строго на препятствия (стены, стойки), а не на корпус самого робота.
+**Verification within RViz2:**
+1. Ensure the **Fixed Frame** in the Global Options is set to `map`.
+2. Verify that the `Map` (Occupancy Grid) display is rendering and dynamically expanding as the robot explores new areas.
+3. Confirm that the red `LaserScan` points align precisely with physical obstacles (walls, racks) and do not reflect the robot's own chassis.
 
-## 3. Сохранение карты (Артефакты для Nav2)
-В ROS 2 сохранение через терминал (`map_saver_cli`) может вызывать сбои из-за рассинхронизации симуляционного и системного времени. Сохранение выполняется **исключительно через графический плагин RViz2**.
-1. В верхнем меню RViz2 выберите: `Panels -> Add New Panel -> slam_toolbox -> SlamToolboxPlugin`.
-2. В появившейся панели в поле **Save Map** введите абсолютный путь сохранения: `/home/vladubase/mona_ws/src/mona_core/maps/warehouse_map`
-3. Нажмите кнопку **Save Map**.
-4. Убедитесь, что в целевой директории `maps/` появились файлы `warehouse_map.pgm` (изображение) и `warehouse_map.yaml` (метаданные).
+---
 
-## 4. Сериализация карты (Для достройки)
-Если вы не закончили объезд склада и планируете продолжить маппинг в будущем:
-1. В той же панели `SlamToolboxPlugin` найдите поле **Serialize Map**.
-2. Введите путь: `/home/vladubase/mona_ws/src/mona_core/maps/warehouse_map_serialized`
-3. Нажмите кнопку **Serialize Map**.
-4. При следующем запуске SLAM вы сможете загрузить этот файл через `Deserialize Map` и продолжить построение графа с того же места.
+## 3. Saving the Static Map (Nav2 Artifacts)
+
+Executing the CLI map saver (`map_saver_cli`) in ROS 2 can occasionally fail due to clock desynchronization between the host OS and the simulation. Map saving must be executed **exclusively via the RViz2 graphical plugin**.
+1. In the top menu of RViz2, navigate to: `Panels -> Add New Panel -> slam_toolbox -> SlamToolboxPlugin`.
+2. In the newly opened panel, locate the **Save Map** input field.
+3. Enter the relative repository path (excluding file extensions): `src/mona_core/maps/warehouse_map`
+4. Click the **Save Map** button.
+5. Verify that `warehouse_map.pgm` (the image matrix) and `warehouse_map.yaml` (the metadata) have been generated in the target directory.
+
+---
+
+## 4. Map Serialization (Lifelong Mapping)
+
+If your mapping session is incomplete and you intend to expand the map at a later date, you must serialize the pose graph.
+1. In the same `SlamToolboxPlugin` panel, locate the **Serialize Map** input field.
+2. Enter the relative repository path: `src/mona_core/maps/warehouse_map_serialized`
+3. Click **Serialize Map**.
+4. Verify that the `.data` and `.posegraph` binary files have been successfully saved to the target directory.

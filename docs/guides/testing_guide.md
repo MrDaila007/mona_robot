@@ -1,0 +1,86 @@
+# Testing and Validation Guide
+
+> **Continuous Verification**
+> 
+> System reliability in the MONA architecture is guaranteed through a rigorous, multi-layered testing pipeline. This guide outlines how to execute tests locally, understand the CI pipeline, and write new unit tests for C++ and Python components.
+
+## 1. Automated CI Pipeline (Local Testing)
+
+Before opening a Pull Request, every developer is required to run the local Continuous Integration script. This script acts as a gatekeeper, running all static analyzers and unit tests within the isolated Docker environment.
+
+**Execution:**
+```bash
+# Attach to the development container
+docker compose up -d dev
+docker compose exec dev bash
+
+# Execute the local CI pipeline
+./scripts/local_ci.bash
+```
+
+> [!NOTE]
+> This script automatically executes colcon test, evaluates linter compliance, and prints a summary of any failed test cases.
+
+---
+
+## 2. C++ Unit Testing (GTest / Ament)
+
+All C++ nodes and libraries must be covered by Google Test (`gtest`).
+
+### Core Testing Patterns
+
+Due to the safety-critical nature of MONA, we enforce testing of ROS 2 Node Lifecycles. Every component must have an instantiation test to ensure it handles memory correctly during initialization and shutdown.
+
+**Example: Lifecycle Instantiation Test (`test_lifecycle_instantiation.cpp`)** This test verifies that a Managed Node can be successfully instantiated and destroyed without memory leaks or segfaults.
+```cpp
+#include <gtest/gtest.h>
+#include <rclcpp/rclcpp.hpp>
+#include "mona_safety/safety_node.hpp"
+
+TEST(SafetyNodeTest, Instantiation) {
+  rclcpp::init(0, nullptr);
+  rclcpp::NodeOptions options;
+  auto node = std::make_shared<mona_safety::SafetyNode>(options);
+  
+  EXPECT_EQ(node->get_name(), std::string("safety_node"));
+  rclcpp::shutdown();
+}
+```
+
+### Running Specific C++ Tests
+
+To run tests for a single package and view the console output (useful for debugging):
+```bash
+colcon test --packages-select mona_safety --event-handlers console_direct+
+```
+
+---
+
+## 3. Python Testing (Pytest)
+
+Python modules, particularly the `fdir_manager.py`, utilize the standard `pytest` framework integrated with `ament_python`.
+
+To execute tests specifically for Python core utilities:
+```bash
+colcon test --packages-select mona_core --pytest-args -v
+```
+
+---
+
+## 4. Static Analysis and Linters
+
+MONA adheres strictly to ROS 2 style guidelines. Linters are automatically executed during the `colcon test` phase.
+- **ament_uncrustify:** Enforces C++ formatting rules (configured via `configs/uncrustify.cfg`).
+- **ament_cppcheck:** Detects undefined behavior, memory leaks, and uninitialized variables in C++.
+- **ament_flake8:** Enforces PEP 8 compliance for all Python scripts.
+
+If `uncrustify` fails, you can automatically format your C++ code by running:
+```bash
+ament_uncrustify --reformat src/
+```
+
+---
+
+## 5. Code Coverage (Codecov)
+
+The GitHub Actions CI pipeline is configured to compile the workspace with the `-fprofile-arcs -ftest-coverage` GCC flags. Test coverage reports are automatically uploaded to Codecov on every Pull Request. Reviewers will block PRs that significantly drop the overall test coverage percentage.

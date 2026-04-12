@@ -1,25 +1,40 @@
-# Ручное управление (Teleoperation & DualSense)
+# Manual Teleoperation (DualSense)
 
-Управление роботом MONA в ручном режиме (MANUAL) осуществляется с помощью геймпада Sony DualSense (PS5). Сигнал проходит через пайплайн безопасности и сглаживания перед тем, как попасть на контроллеры моторов.
+> **Human-in-the-Loop Control**
+> 
+> Manual control (`MANUAL` state) of the MONA robot is executed via a Sony DualSense (PS5) gamepad. To guarantee physical safety, all signals are routed through a strict FDIR and smoothing pipeline before reaching the motor controllers.
 
-## 1. Пайплайн управления
-1.  **Сырой ввод (`joy_node`)**: Чтение устройства `/dev/input/jsX`. Настроено на постоянную частоту отправки (`autorepeat_rate: 20.0 Hz`), чтобы поддерживать Watchdog контроллера в активном состоянии.
-2.  **Маппинг осей (`teleop_twist_joy`)**: Конвертация сырых нажатий в `geometry_msgs/msg/Twist`.
-3.  **Безопасный роутинг**: Команды публикуются в топик `/cmd_teleop`.
-4.  **Сглаживание и Валидация (`safety_node`)**: Применение EMA-фильтра и проверка состояния E-STOP. Публикация в `/cmd_vel` на частоте 100 Гц.
+## 1. Kinematic Control Pipeline
+1. **Raw Input (`joy_node`)**: Reads the host device `/dev/input/jsX`. It is configured to broadcast continuously (`autorepeat_rate: 50.0 Hz`) to satisfy the TwistMux communication watchdog.
+2. **Axis Mapping (`teleop_twist_joy`)**: Translates raw button arrays and analog stick values into standardized `geometry_msgs/msg/Twist` vectors.
+3. **Multiplexing (`twist_mux_node`)**: Receives the command on the `/[namespace]/cmd_teleop` topic. It asserts the highest priority, immediately preempting any active Nav2 goals.
+4. **Smoothing & Validation (`safety_node`)**: The signal is processed by an Exponential Moving Average (EMA) filter to prevent mechanical jerking. The Safety Node validates the command against the current FDIR state (`EMERGENCY` lockouts) before publishing the final vector to `/[namespace]/hardware/motor_cmd` at 100 Hz.
 
-## 2. Раскладка управления (DualSense)
-* **L2 (Deadman Switch)**: Кнопка бдительности оператора. Пока она не зажата, любые движения стиков игнорируются (требование стандартов безопасности).
-* **Левый стик (Y)**: Линейная скорость Вперед/Назад (Ось X робота).
-* **Левый стик (X)**: Линейная скорость Влево/Вправо (Стрейф, Ось Y робота). *Только для Mecanum-шасси.*
-* **Правый стик (X)**: Угловая скорость (Вращение на месте, Ось Yaw).
-* **R2 (Turbo)**: Модификатор максимальной скорости (2x).
+---
 
-## 3. Запуск
-По умолчанию геймпад отключён для совместимости с CI и разработчиками без контроллера. Для активации используйте аргумент запуска:
+## 2. DualSense Control Layout
+* **L2 Trigger (Deadman Switch)**: The operator vigilance button. **Unless this trigger is fully depressed, all analog stick movements are strictly ignored** (in compliance with ISO 13849-1 safety standards).
+* **Left Stick (Vertical)**: Linear Velocity Forward/Backward (Robot X-Axis).
+* **Left Stick (Horizontal)**: Linear Velocity Left/Right (Strafing, Robot Y-Axis). *Note: Effective only on Mecanum-equipped chassis configurations.*
+* **Right Stick (Horizontal)**: Angular Velocity (Rotation in place, Robot Yaw/Z-Axis).
+* **R2 Trigger (Turbo Mode)**: Depressing this trigger while holding the L2 Deadman Switch removes standard software velocity limiters, allowing the chassis to achieve maximum mechanical speed.
+
+---
+
+## 3. Launching with Gamepad Support
+
+By default, gamepad support is explicitly disabled. This ensures compatibility with automated CI pipelines and allows developers without physical controllers to run the simulation seamlessly. To activate the teleoperation stack, the `use_gamepad:=true` argument must be passed.
+
+Within our Swarm infrastructure, this is handled automatically by the single-agent testing script:
 
 ```bash
-ros2 launch mona_core bringup.launch.py use_gamepad:=true
+./scripts/start_1_robot.bash
 ```
 
-_(При работе в Docker убедитесь, что устройство проброшено через `volumes: - /dev/input:/dev/input:ro` в `docker-compose.yml`)_.
+If you are launching a custom agent manually via Docker Compose, apply the argument as follows:
+```bash
+docker compose run --rm mona-robot ros2 launch mona_core robot.launch.py namespace:=mona_001 use_gamepad:=true
+```
+
+> [!NOTE]
+> When operating within Docker, the compose configuration automatically mounts the host's device tree via volumes: - /dev/input:/dev/input:ro to grant the container read-only access to the physical gamepad.

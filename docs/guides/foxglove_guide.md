@@ -1,50 +1,56 @@
-# Руководство по диспетчеризации в Foxglove Studio
+# Foxglove Studio Dispatch Guide
 
-Foxglove Studio — это основной инструмент для мониторинга, отладки и ручного управления роботом Mona. Мы используем кастомный дашборд, который объединяет визуализацию навигации, контроль FDIR (отказоустойчивости) и управление аппаратными блокировками.
+> **Centralized Fleet Telemetry**
+> 
+> Foxglove Studio serves as the primary interface for monitoring, debugging, and dispatching the MONA robot fleet. We utilize a custom dashboard layout that integrates navigation visualization, FDIR (Fault Tolerance) health monitoring, and hardware interlock controls.
 
-## 1. Подключение к роботу
-При запуске симуляции (`./scripts/run_sim.bash`) или реального робота автоматически поднимается узел `foxglove_bridge`. Он транслирует данные ROS 2 через WebSocket.
-1. Откройте приложение **Foxglove Studio** (или веб-версию).
-2. Перейдите в меню **Layouts** (иконка двух квадратов на левой панели).
-3. Нажмите **Import from file...**
-4. Выберите файл из репозитория: `src/mona_core/configs/foxglove_dashboard.json`.
-5. Нажмите **Open Connection**.
-6. Выберите **Foxglove WebSocket**.
-7. Укажите адрес: `ws://127.0.0.1:8765` (для локальной симуляции) или IP-адрес робота.
-8. Нажмите **Open**.
+## 1. Establishing a Connection
 
----
-
-## 2. Описание панелей управления
-Дашборд разделён на функциональные зоны:
-
-### Визуализация (Центральная часть)
-* **3D Panel:** Отображает TF-дерево (каркас робота), облака точек лидаров (`/scan`), карту склада (`/map`), локальные и глобальные пути (`/plan`, `/local_plan`). Настроена жёсткая привязка оси Z (`Z-up`), чтобы робот корректно стоял на поверхности.
-* **Image:** Трансляция с фронтальной камеры (`/camera/image_raw`). Полезна для телеоператора при езде в узких коридорах.
-### Управление безопасностью (Справа вверху)
-* **E-STOP:** Экстренная остановка (Level 2). Вызывает сервис `/emergency_stop`. Мгновенно обнуляет скорости, блокирует навигацию (Nav2) и переводит систему в статус `EMERGENCY`.
-* **RECOVER (Reset):** Вызывает сервис `/emergency_stop_reset`. Снимает аппаратную блокировку, восстанавливает питание приводов и возвращает управление мультиплексору скоростей.
-### Мониторинг статусов (Справа в центре)
-* **`/robot_status`:** Глобальный статус робота (`IDLE`, `MANUAL`, `AUTONOMOUS`, `EMERGENCY`, `BLOCKED_BY_SAFETY`). Формируется узлом `SafetyNode` на основе строгой иерархии приоритетов.
-* **`/system/health_state`:** Статус программных C++ процессов от `FDIR Manager` (`SOFTWARE_OK`, `SYSTEM_STARTUP`).
-* **Parameters:** Позволяет "на лету" изменять параметры запущенных ROS 2 узлов (например, коэффициент сглаживания `ema_alpha` для джойстика) без перезапуска системы.
-### Графики и Логи (Внизу)
-* **Log:** Поток стандартного вывода (ROSout). Незаменим для отслеживания ошибок и статусов `RCLCPP`.
-* **Plot Linear X-Y / Angular Z:** Графики сравнения сырых команд (`/cmd_teleop`, `/cmd_nav`) с итоговой отфильтрованной скоростью (`/hardware/motor_cmd`). Идеально для отладки ПИД-регуляторов и фильтра EMA.
+Whenever the simulation infrastructure is launched (`./scripts/start_world.bash`), the `foxglove_bridge` node is automatically initialized. It streams ROS 2 telemetry over a WebSocket connection.
+1. Open the **Foxglove Studio** desktop application (or the web interface).
+2. Navigate to the **Layouts** menu (the two-squares icon on the left sidebar).
+3. Click **Import from file...**
+4. Select the layout file from the repository: `src/mona_core/configs/foxglove_dashboard.json`.
+5. Click **Open Connection**.
+6. Select the **Foxglove WebSocket** protocol.
+7. Enter the WebSocket URL: `ws://127.0.0.1:8765` (for local simulation) or the specific IP address of your physical robot/host.
+8. Click **Open**.
 
 ---
 
-## 3. Особенности архитектуры (Safety Critical)
-1. **Защита от состояния гонки (Topic Collision):** Узел `TwistMux` не имеет права напрямую публиковать данные в `/robot_status`. Он отправляет свои намерения в `/mux_status`, а `SafetyNode` принимает финальное решение о публикации.
-2. **Фильтр "спама нулями":** Если оператор отпускает стик геймпада, драйвер джойстика начинает отправлять нулевые скорости (`Twist: 0.0`). Мультиплексор распознает эту мертвую зону и **не продлевает** блокировку автономной навигации, позволяя Nav2 перехватить управление по истечении тайм-аута.
-3. **Приоритет безопасности:** Вызов `E-STOP` имеет наивысший приоритет. При активном E-STOP любые команды от джойстика или Nav2 игнорируются на уровне C++ кода, а целевая скорость жестко фиксируется на нуле.
+## 2. Dashboard Interface Overview
+
+The layout is partitioned into distinct functional zones:
+
+### Visualization (Central Panel)
+* **3D Panel:** Renders the active coordinate transform tree (TF), LiDAR point clouds (`/[namespace]/scan`), the global warehouse map (`/map`), and navigation trajectories (`/[namespace]/plan`, `/[namespace]/local_plan`). It is strictly anchored to the `map` frame to visualize absolute global positioning.
+
+### Diagnostics and Telemetry (Right Panel)
+* **Raw Messages:** A live data stream of critical system topics.
+  * `/[namespace]/system/health_state`: The FDIR health status.
+  * `/[namespace]/hardware/contactor_cmd`: The physical state of the motor relays.
+* **Diagnostics:** A structured hierarchical view of the ROS 2 Diagnostics pipeline. Displays hardware errors, operational frequency drops, and safety system statuses.
+
+### Logs and Kinematic Plots (Bottom Panel)
+* **Log:** The standard output stream (ROSout). Essential for tracking `RCLCPP` warnings, errors, and state transitions.
+* **Plot (Linear X-Y / Angular Z):** Real-time comparative graphs plotting raw input commands (`/[namespace]/cmd_teleop`, `/[namespace]/cmd_nav`) against the final, filtered physical velocity (`/[namespace]/hardware/motor_cmd`). This is the primary tool for tuning PID controllers and the EMA filter alpha.
 
 ---
 
-## 4. Внесение изменений в интерфейс
+## 3. Safety-Critical Architecture Features
 
-Если вы добавили новую панель или изменили цвета графиков и хотите сохранить это для остальной команды:
-1. Зайдите в меню **Layouts** в Foxglove.
-2. Нажмите кнопку скачивания (Export) текущего макета.
-3. Перезапишите скачанным файлом исходник `src/mona_core/configs/foxglove_dashboard.json`.
-4. Сделайте `git commit`.
+When analyzing data in Foxglove, keep the following architectural paradigms in mind:
+
+1. **Topic Collision Protection (Race Conditions):** The `twist_mux_node` is strictly prohibited from publishing directly to the global `/robot_status` topic. It broadcasts its intentions to `/[namespace]/mux_status`, while the `safety_node` aggregates all data and makes the final decision on what to publish globally.
+2. **Zero-Spam Deadzone Filter:** When a human operator releases the gamepad analog sticks, the joystick driver floods the network with zero-velocity commands (`Twist: 0.0`). The multiplexer intelligently recognizes this deadzone state. It drops the zero-spam and **does not extend** the manual lockout timer, allowing the Nav2 autopilot to seamlessly regain control once the 5-second timeout expires.
+3. **E-STOP Absolute Priority:** A triggered `EMERGENCY` state possesses the highest system priority. When active, all commands from the gamepad or Nav2 are discarded at the C++ execution level, and the target velocity is rigidly clamped to zero, followed by a hardware contactor cutoff.
+
+---
+
+## 4. Saving Layout Modifications
+
+If you introduce a new panel, modify plot configurations, or adjust data formats and wish to persist these changes for the rest of the development team:
+1. Open the **Layouts** menu in Foxglove Studio.
+2. Click the **Download** button to save the active layout as a JSON file.
+3. Overwrite the existing repository artifact at `src/mona_core/configs/foxglove_dashboard.json` with your newly downloaded file.
+4. Commit and push the updated layout via Git.

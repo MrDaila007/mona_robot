@@ -23,45 +23,48 @@ from launch.substitutions import LaunchConfiguration
 
 
 def generate_launch_description():
-    # Определение путей
-    mona_core_dir = get_package_share_directory('mona_core')
-    slam_toolbox_dir = get_package_share_directory('slam_toolbox')
+    # Path definitions
+    mona_core_dir = get_package_share_directory("mona_core")
+    slam_toolbox_dir = get_package_share_directory("slam_toolbox")
 
-    # Аргументы запуска
-    use_sim_time = LaunchConfiguration('use_sim_time', default='true')
+    # Launch arguments
+    use_sim_time = LaunchConfiguration("use_sim_time", default="true")
     slam_params_file = LaunchConfiguration(
-        'slam_params_file',
-        default=os.path.join(mona_core_dir, 'configs', 'mapper_params_localization.yaml')
+        "slam_params_file",
+        default=os.path.join(
+            mona_core_dir, "configs", "mapper_params_localization.yaml"
+        ),
     )
 
-    # Декларация аргументов
+    # Argument declarations
     declare_use_sim_time_cmd = DeclareLaunchArgument(
-        'use_sim_time',
-        default_value='true',
-        description='Use simulation (Gazebo) clock if true'
+        "use_sim_time",
+        default_value="true",
+        description="Use simulation (Gazebo) clock if true",
     )
 
     declare_slam_params_file_cmd = DeclareLaunchArgument(
-        'slam_params_file',
+        "slam_params_file",
         default_value=slam_params_file,
-        description='Full path to the ROS2 parameters file to use for the slam_toolbox node'
+        description="Full path to the ROS2 parameters file to use for the slam_toolbox node",
     )
 
-    # Интеграция стандартного launch-файла slam_toolbox
+    # Integration of the standard slam_toolbox launch file
     start_slam_toolbox_cmd = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
-            os.path.join(slam_toolbox_dir, 'launch', 'localization_launch.py')
+            os.path.join(slam_toolbox_dir, "launch", "localization_launch.py")
         ),
         launch_arguments={
-            'use_sim_time': use_sim_time,
-            'slam_params_file': slam_params_file
-        }.items()
+            "use_sim_time": use_sim_time,
+            "slam_params_file": slam_params_file,
+        }.items(),
     )
 
-    # Формирование описания запуска
-    ld = LaunchDescription()
-    ld.add_action(declare_use_sim_time_cmd)
-    ld.add_action(declare_slam_params_file_cmd)
-    ld.add_action(start_slam_toolbox_cmd)
-
-    return ld
+    # Launch description generation
+    return LaunchDescription(
+        [
+            declare_use_sim_time_cmd,
+            declare_slam_params_file_cmd,
+            start_slam_toolbox_cmd,
+        ]
+    )

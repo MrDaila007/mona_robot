@@ -1,12 +1,12 @@
 version: 2
 updates:
-  # 1. Следим за обновлениями GitHub Actions (чтобы CI и CodeQL не устаревали)
+  # 1. Monitor GitHub Actions updates to prevent CI and CodeQL deprecation
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
       interval: "weekly"
 
-  # 2. Следим за обновлениями базовых образов в Dockerfile
+  # 2. Monitor base image updates in the Dockerfile
   - package-ecosystem: "docker"
     directory: "/"
     schedule:

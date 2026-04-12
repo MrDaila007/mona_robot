@@ -51,14 +51,15 @@
     </joint>
 
     <gazebo reference="${name}_link">
-      <sensor name="${name}" type="gpu_lidar">  <!-- or 'lidar' -->
+      <sensor name="${name}" type="gpu_lidar">
         <pose>0 0 0 0 0 0</pose>
-        <topic>${name}/scan</topic>
+        <topic>/$(arg namespace)/${name}/scan</topic>
         <always_on>true</always_on>
         <visualize>true</visualize>
         <update_rate>${lidar_updaterate}</update_rate>
-        <gz_frame_id>${name}_link</gz_frame_id>
-        <ign_frame_id>${name}_link</ign_frame_id>
+        <ignition_frame_id>$(arg namespace)/${name}_link</ignition_frame_id>
+        <gz_frame_id>$(arg namespace)/${name}_link</gz_frame_id>
+        <ign_frame_id>$(arg namespace)/${name}_link</ign_frame_id>
         <ray>
           <scan>
             <horizontal>

@@ -50,26 +50,26 @@ CallbackReturn TwistMuxNode::on_configure(const rclcpp_lifecycle::State &) {
     rclcpp::SubscriptionOptions sub_opts;
     sub_opts.callback_group = callback_group;
 
-    // --- ПАБЛИШЕРЫ --- //
-    smooth_pub_ = this->create_publisher<geometry_msgs::msg::Twist>("/cmd_vel_smoothed", 10);
-    status_pub_ = this->create_publisher<std_msgs::msg::String>("/mux_status", 10);
+    // --- PUBLISHERS --- //
+    smooth_pub_ = this->create_publisher<geometry_msgs::msg::Twist>("cmd_vel_smoothed", 10);
+    status_pub_ = this->create_publisher<std_msgs::msg::String>("mux_status", 10);
 
-    // --- ПОДПИСКИ --- //
-    // Телеоператор (Высокий приоритет)
+    // --- SUBSCRIPTIONS --- //
+    // Teleoperation overrides (High priority)
     teleop_sub_ = this->create_subscription<geometry_msgs::msg::Twist>(
-        "/cmd_teleop", 10, std::bind(
+        "cmd_teleop", 10, std::bind(
             &TwistMuxNode::teleop_callback, this,
             std::placeholders::_1), sub_opts);
 
-    // Навигация/Сервер (Средний приоритет)
+    // Navigation and server routing (Standard priority)
     nav_sub_ = this->create_subscription<geometry_msgs::msg::Twist>(
-        "/cmd_nav", 10, std::bind(
+        "cmd_nav", 10, std::bind(
             &TwistMuxNode::nav_callback, this,
             std::placeholders::_1), sub_opts);
 
-    // Подписка на глобальный статус, чтобы знать об E-STOP
+    // Subscribe to global robot status to monitor FDIR and E-STOP conditions
     robot_status_sub_ = this->create_subscription<std_msgs::msg::String>(
-        "/robot_status", 10, std::bind(
+        "robot_status", 10, std::bind(
             &TwistMuxNode::robot_status_callback, this,
             std::placeholders::_1), sub_opts);
 
@@ -124,7 +124,7 @@ void TwistMuxNode::publish_status(std::string status_text) {
     }
 }
 
-// Коллбэк для чтения состояния E-STOP
+// Callback to monitor active safety states and hardware cutoffs
 void TwistMuxNode::robot_status_callback(const std_msgs::msg::String::SharedPtr msg) {
     if (msg->data == "EMERGENCY" || msg->data == "PROTECTIVE_STOP") {
         is_safety_blocked_ = true;
@@ -136,17 +136,17 @@ void TwistMuxNode::robot_status_callback(const std_msgs::msg::String::SharedPtr 
 void TwistMuxNode::teleop_callback(const geometry_msgs::msg::Twist::SharedPtr msg) {
     std::lock_guard<std::mutex> lock(mux_mutex_);
 
-    // Фильтр спама нулями
+    // Filter zero-velocity spam emitted by idle gamepads
     bool is_zero_cmd =
         (std::hypot(msg->linear.x, msg->linear.y) < 0.001 && std::abs(msg->angular.z) < 0.001);
 
     if (is_zero_cmd) {
-        // Запоминаем 0, чтобы робот плавно остановился, НО не продлеваем таймер блокировки Nav2
+        // Store the zero command for smooth deceleration, BUT do not extend the Nav2 lockout timer
         last_teleop_msg_ = *msg;
     } else {
         last_teleop_time_ = this->now();
 
-        // Перехват управления: отмена цели Nav2
+        // Manual takeover: Cancel the active Nav2 goal to prevent immediate resumption
         if (current_state_ == MuxState::AUTONOMOUS) {
             if (nav_client_ && nav_client_->action_server_is_ready()) {
                 nav_client_->async_cancel_all_goals();
@@ -162,7 +162,7 @@ void TwistMuxNode::nav_callback(const geometry_msgs::msg::Twist::SharedPtr msg) 
     std::lock_guard<std::mutex> lock(mux_mutex_);
     last_nav_time_ = this->now();
 
-    // Блокировка навигации, если недавно был активен джойстик
+    // Block navigation commands if the teleop interface was recently active
     if ((this->now() - last_teleop_time_).seconds() < manual_timeout_) {return;}
 
     current_state_ = MuxState::AUTONOMOUS;
@@ -177,10 +177,10 @@ void TwistMuxNode::control_loop() {
     double time_since_teleop = (now - last_teleop_time_).seconds();
     double time_since_nav    = (now - last_nav_time_).seconds();
 
-    // Внедрение состояния BLOCKED
+    // Enforce the BLOCKED safety state regardless of incoming inputs
     if (is_safety_blocked_) {
         current_state_ = MuxState::BLOCKED;
-        target_vel_    = geometry_msgs::msg::Twist();   // Форсируем нули
+        target_vel_    = geometry_msgs::msg::Twist();   // Force zero velocity
     } else if ((time_since_teleop > cmd_timeout_) && (time_since_nav > cmd_timeout_)) {
         current_state_ = MuxState::IDLE;
         target_vel_    = geometry_msgs::msg::Twist();
@@ -194,7 +194,7 @@ void TwistMuxNode::control_loop() {
 
     publish_status(mux_state_to_string(current_state_));
 
-    // EMA Filter
+    // Exponential Moving Average (EMA) Filter for smooth acceleration/deceleration
     current_vel_.linear.x = ema_alpha_ * target_vel_.linear.x + (1.0 - ema_alpha_) *
         current_vel_.linear.x;
     current_vel_.linear.y = ema_alpha_ * target_vel_.linear.y + (1.0 - ema_alpha_) *
@@ -206,6 +206,6 @@ void TwistMuxNode::control_loop() {
 }
 }  // namespace mona_control
 
-// Регистрация компонента в инфраструктуре ROS 2
+// Register the component within the ROS 2 infrastructure
 #include "rclcpp_components/register_node_macro.hpp"
 RCLCPP_COMPONENTS_REGISTER_NODE(mona_control::TwistMuxNode)

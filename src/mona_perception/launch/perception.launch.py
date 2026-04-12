@@ -21,54 +21,50 @@ from launch_ros.actions import Node
 
 
 def generate_launch_description():
-    # Объявляем аргумент use_sim_time (чтобы получать его от главного лаунч-файла)
-    use_sim_time = LaunchConfiguration('use_sim_time', default='true')
+    use_sim_time = LaunchConfiguration("use_sim_time", default="true")
     use_sim_time_arg = DeclareLaunchArgument(
-        'use_sim_time',
-        default_value='true',
-        description='Use simulation (Gazebo) clock if true'
+        "use_sim_time",
+        default_value="true",
+        description="Use simulation (Gazebo) clock if true",
     )
 
-#    # 1. Запускаем C++ компонент Lidar Merger
-#    lidar_merger = LifecycleNode(
-#        package='mona_perception',
-#        executable='lidar_merger_node',  # Используем имя исполняемого файла из CMake
-#        name='mona_lidar_merger',
-#        namespace='',
-#        output='screen',
-#        parameters=[{'use_sim_time': use_sim_time}]
-#    )
+    namespace = LaunchConfiguration("namespace", default="mona_001")
+    namespace_arg = DeclareLaunchArgument(
+        "namespace",
+        default_value="mona_001",
+        description="Top-level namespace for the robot",
+    )
 
-    # 2. Конвертация PointCloud2 в LaserScan для SLAM
+    # Converting PointCloud2 to LaserScan for SLAM
     pointcloud_to_laserscan = Node(
-        package='pointcloud_to_laserscan',
-        executable='pointcloud_to_laserscan_node',
-        name='pointcloud_to_laserscan',
-        output='screen',
-        remappings=[
-            ('cloud_in', 'perception/combined_cloud'),
-            ('scan', 'scan')
+        package="pointcloud_to_laserscan",
+        executable="pointcloud_to_laserscan_node",
+        name="pointcloud_to_laserscan",
+        output="screen",
+        remappings=[("cloud_in", "perception/combined_cloud"), ("scan", "scan")],
+        parameters=[
+            {
+                "target_frame": [namespace, "/base_footprint"],
+                "transform_tolerance": 0.05,
+                "min_height": 0.1,
+                "max_height": 0.2,
+                "angle_min": -3.14159,
+                "angle_max": 3.14159,
+                "angle_increment": 0.0087,
+                "scan_time": 0.066,
+                "range_min": 0.05,
+                "range_max": 40.0,
+                "use_inf": True,
+                "inf_epsilon": 1.0,
+                "use_sim_time": use_sim_time,
+            },
         ],
-        parameters=[{
-            'target_frame': 'base_footprint',
-            'transform_tolerance': 0.05,
-            'min_height': 0.1,
-            'max_height': 0.2,
-            'angle_min': -3.14159,
-            'angle_max': 3.14159,
-            'angle_increment': 0.0087,
-            'scan_time': 0.066,
-            'range_min': 0.05,
-            'range_max': 40.0,
-            'use_inf': True,
-            'inf_epsilon': 1.0,
-            'use_sim_time': use_sim_time,
-            'qos_overrides./scan.publisher.reliability': 'best_effort'
-        }]
     )
 
-    return LaunchDescription([
-        use_sim_time_arg,
-        # lidar_merger,
-        pointcloud_to_laserscan
-    ])
+    return LaunchDescription(
+        [
+            use_sim_time_arg,
+            namespace_arg,
+            pointcloud_to_laserscan,
+        ]
+    )

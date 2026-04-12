@@ -21,13 +21,13 @@ endif()
 
 find_package(ament_cmake REQUIRED)
 
-# Установка папок с конфигурациями, лаунчами и картами
+# Install configuration, launch, map, and script directories
 install(
   DIRECTORY launch configs maps scripts
   DESTINATION share/${PROJECT_NAME}
 )
 
-# Установка Python-скриптов (чтобы ros2 run mona_core fdir_manager.py работал)
+# Install Python executable scripts (enables 'ros2 run mona_core fdir_manager.py')
 install(
   PROGRAMS scripts/fdir_manager.py
   DESTINATION lib/${PROJECT_NAME}
