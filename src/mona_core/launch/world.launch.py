@@ -1,0 +1,102 @@
+#!/usr/bin/env python3
+
+# Copyright 2026 vladubase
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+"""
+Launch description for the simulation infrastructure (World).
+
+This module initializes the Gazebo physics engine and the Foxglove
+telemetry bridge. It serves as the foundational infrastructure required
+prior to the instantiation of any robotic agents. No robot-specific
+nodes or namespaces are declared within this scope.
+"""
+
+import os
+from ament_index_python.packages import get_package_share_directory
+from launch import LaunchDescription
+from launch.actions import (
+    IncludeLaunchDescription,
+    SetEnvironmentVariable,
+    DeclareLaunchArgument,
+)
+from launch.launch_description_sources import PythonLaunchDescriptionSource
+from launch.substitutions import LaunchConfiguration, PythonExpression
+from launch_ros.actions import Node
+
+
+def generate_launch_description():
+    # --- VARIABLES AND PATHS --- #
+    pkg_mona_description = get_package_share_directory("mona_description")
+    pkg_ros_gz_sim = get_package_share_directory("ros_gz_sim")
+    
+    world_file = os.path.join(pkg_mona_description, "worlds", "warehouse.sdf")
+
+    # --- LAUNCH ARGUMENTS --- #
+    arg_headless = DeclareLaunchArgument(
+        "headless",
+        default_value="true",
+        description="Run in headless mode (NO Rviz, NO Gazebo GUI)",
+    )
+    headless = LaunchConfiguration("headless")
+
+    arg_use_sim_time = DeclareLaunchArgument(
+        "use_sim_time", default_value="true", description="Use simulation clock"
+    )
+    use_sim_time = LaunchConfiguration("use_sim_time")
+
+    # --- ENVIRONMENT SETTINGS --- #
+    env_resource = SetEnvironmentVariable(
+        name="IGN_GAZEBO_RESOURCE_PATH",
+        value=[os.path.dirname(pkg_mona_description), ":", pkg_mona_description],
+    )
+
+    # Forced highlighting of ROS 2 logs
+    env_color = SetEnvironmentVariable(name="RCUTILS_COLORIZED_OUTPUT", value="1")
+
+    # --- INFRASTRUCTURE NODES --- #
+    # 1. Gazebo Server
+    gz_args = [
+        PythonExpression(["'-s -r ' if '", headless, "' == 'true' else '-r '"]),
+        world_file,
+    ]
+    gz_sim = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(
+            os.path.join(pkg_ros_gz_sim, "launch", "gz_sim.launch.py")
+        ),
+        launch_arguments={"gz_args": gz_args}.items(),
+    )
+
+    # 2. Foxglove WebSocket Bridge (Global Telemetry)
+    bridge_foxglove = Node(
+        package="foxglove_bridge",
+        executable="foxglove_bridge",
+        name="foxglove_bridge",
+        parameters=[
+            {"port": 8765, "send_buffer_limit": 100000000, "use_sim_time": use_sim_time}
+        ],
+        output="screen",
+    )
+
+    # --- LAUNCH --- #
+    return LaunchDescription(
+        [
+            env_resource,
+            env_color,
+            arg_headless,
+            arg_use_sim_time,
+            gz_sim,
+            bridge_foxglove,
+        ]
+    )

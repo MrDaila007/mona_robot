@@ -3,13 +3,13 @@
     "3D!1": {
       "cameraState": {
         "perspective": true,
-        "distance": 2418.6567243582044,
-        "phi": 50.588773903265924,
-        "thetaOffset": 141.2974353205848,
+        "distance": 1092.9210309860796,
+        "phi": 63.456921020903366,
+        "thetaOffset": 140.25260740056981,
         "targetOffset": [
-          0.18844175319254586,
-          0.683104028162084,
-          6.54780055925145e-18
+          0.44200080912184064,
+          -0.5268831514396553,
+          6.394506651292873e-17
         ],
         "target": [
           0,
@@ -27,83 +27,258 @@
         "far": 5000
       },
       "topics": {
-        "/scan": {
+        "/$robot_id/lidar_front/scan": {
           "visible": true,
-          "colorField": "intensity",
-          "pointSize": 3
+          "colorField": "range",
+          "pointSize": 3,
+          "colorMode": "colormap"
         },
-        "/robot_description": {
+        "/$robot_id/lidar_back/scan": {
+          "visible": true,
+          "colorField": "range",
+          "pointSize": 3,
+          "colorMode": "colormap"
+        },
+        "/$robot_id/lidar_left/scan": {
+          "visible": true,
+          "colorField": "range",
+          "pointSize": 3,
+          "colorMode": "colormap"
+        },
+        "/$robot_id/lidar_right/scan": {
+          "visible": true,
+          "colorField": "range",
+          "pointSize": 3,
+          "colorMode": "colormap"
+        },
+        "/$robot_id/robot_description": {
+          "visible": true
+        },
+        "/$robot_id/goal_pose": {
+          "visible": false
+        },
+        "/mona_001/amcl_pose": {
+          "visible": false
+        },
+        "/mona_001/camera/image_raw": {
+          "visible": true,
+          "frameLocked": true,
+          "cameraInfoTopic": "/mona_001/camera/camera_info",
+          "distance": 1,
+          "planarProjectionFactor": 0,
+          "renderMode": "default",
+          "projectionFrameId": "mona_001/base_footprint",
+          "color": "#ffffff",
+          "rectifyImage": true,
+          "pointSize": 1.5
+        },
+        "/mona_001/cost_cloud": {
+          "visible": false
+        },
+        "/mona_001/global_costmap/costmap": {
+          "visible": false
+        },
+        "/mona_001/goal_pose": {
+          "visible": false
+        },
+        "/mona_001/lidar_back/scan": {
+          "visible": false,
+          "colorField": "intensity",
+          "colorMode": "colormap",
+          "colorMap": "turbo"
+        },
+        "/mona_001/map": {
+          "visible": false
+        },
+        "/mona_001/perception/combined_cloud": {
+          "visible": false,
+          "colorField": "intensity",
+          "colorMode": "colormap",
+          "colorMap": "turbo",
+          "pointSize": 4
+        },
+        "/mona_001/scan": {
+          "visible": true,
+          "colorField": "range",
+          "colorMode": "colormap",
+          "colorMap": "turbo",
+          "pointSize": 4,
+          "minValue": 0.1,
+          "maxValue": 40
+        },
+        "/map": {
+          "visible": true
+        },
+        "/mona_001/initialpose": {
+          "visible": false
+        },
+        "/mona_001/set_pose": {
+          "visible": false
+        },
+        "/initialpose": {
+          "visible": false
+        },
+        "/mona_001/camera/camera_info": {
           "visible": true
         }
       },
-      "globalFrameId": "odom",
+      "globalFrameId": "$robot_id/odom",
       "followMode": "follow-pose",
-      "followTf": "map",
-      "fixedFrame": "map",
+      "followTf": "mona_001/base_footprint",
       "scene": {
         "meshUpAxis": "z_up",
         "enableStats": true,
-        "ignoreColladaUpAxis": false,
-        "labelScaleFactor": 1,
         "transforms": {
           "visible": false
-        }
+        },
+        "syncCamera": false,
+        "labelScaleFactor": 1
       },
       "transforms": {
-        "frame:map": {
+        "frame:$robot_id/map": {
           "visible": true
         },
-        "frame:odom": {
+        "frame:$robot_id/odom": {
           "visible": true
         },
-        "frame:base_footprint": {
+        "frame:$robot_id/base_footprint": {
           "visible": true
         },
-        "frame:base_link": {
+        "frame:$robot_id/base_link": {
           "visible": true
         },
-        "frame:imu_link": {
+        "frame:$robot_id/imu_link": {
           "visible": true
         },
-        "frame:led_strip_link": {
+        "frame:$robot_id/led_strip_link": {
           "visible": true
         },
-        "frame:lidar_back_link": {
+        "frame:$robot_id/lidar_back_link": {
           "visible": true
         },
-        "frame:lidar_front_link": {
+        "frame:$robot_id/lidar_front_link": {
           "visible": true
         },
-        "frame:lidar_left_link": {
+        "frame:$robot_id/lidar_left_link": {
           "visible": true
         },
-        "frame:lidar_right_link": {
+        "frame:$robot_id/lidar_right_link": {
           "visible": true
         },
-        "frame:wheel_back_left_link": {
+        "frame:$robot_id/wheel_back_left_link": {
           "visible": true
         },
-        "frame:wheel_back_right_link": {
+        "frame:$robot_id/wheel_back_right_link": {
           "visible": true
         },
-        "frame:wheel_front_left_link": {
+        "frame:$robot_id/wheel_front_left_link": {
           "visible": true
         },
-        "frame:wheel_front_right_link": {
+        "frame:$robot_id/wheel_front_right_link": {
+          "visible": true
+        },
+        "frame:mona_001/camera_link": {
+          "visible": true
+        },
+        "frame:mona_001/lidar_right_link": {
+          "visible": true
+        },
+        "frame:mona_001/odom": {
+          "visible": true
+        },
+        "frame:mona_001/base_footprint": {
+          "visible": true
+        },
+        "frame:mona_001/base_link": {
+          "visible": true
+        },
+        "frame:mona_001/camera_optical_link": {
+          "visible": true
+        },
+        "frame:mona_001/imu_link": {
+          "visible": true
+        },
+        "frame:mona_001/led_strip_link": {
+          "visible": true
+        },
+        "frame:mona_001/lidar_back_link": {
+          "visible": true
+        },
+        "frame:mona_001/lidar_front_link": {
+          "visible": true
+        },
+        "frame:mona_001/lidar_left_link": {
+          "visible": true
+        },
+        "frame:mona_001/wheel_back_left_link": {
+          "visible": true
+        },
+        "frame:mona_001/wheel_back_right_link": {
+          "visible": true
+        },
+        "frame:mona_001/wheel_front_left_link": {
+          "visible": true
+        },
+        "frame:mona_001/wheel_front_right_link": {
           "visible": true
         }
       },
-      "layers": {},
+      "layers": {
+        "e2b3467b-991f-4378-be3f-37af15bb1ff8": {
+          "visible": true,
+          "drawBehind": false,
+          "label": "Grid",
+          "instanceId": "e2b3467b-991f-4378-be3f-37af15bb1ff8",
+          "layerId": "foxglove.Grid",
+          "size": 10,
+          "divisions": 10,
+          "lineWidth": 0.5,
+          "color": "#248eff",
+          "position": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "order": 1
+        },
+        "be3937cf-c9f8-4d02-922b-cd77b1313720": {
+          "controlMode": "jointStates",
+          "jointStatesTopic": "/mona_001/joint_states",
+          "displayMode": "auto",
+          "fallbackColor": "#ffffff",
+          "showAxis": false,
+          "axisScale": 1,
+          "showOutlines": true,
+          "opacity": 1,
+          "visible": true,
+          "instanceId": "be3937cf-c9f8-4d02-922b-cd77b1313720",
+          "layerId": "foxglove.Urdf",
+          "label": "URDF",
+          "sourceType": "topic",
+          "url": "",
+          "filePath": "",
+          "parameter": "",
+          "topic": "/mona_001/robot_description",
+          "framePrefix": "",
+          "order": 2
+        }
+      },
       "publish": {
         "type": "point",
-        "poseTopic": "/move_base_simple/goal",
-        "pointTopic": "/clicked_point",
-        "poseEstimateTopic": "/initialpose",
+        "poseTopic": "/mona_001/goal_pose",
+        "pointTopic": "/mona_001/clicked_point",
+        "poseEstimateTopic": "/mona_001/initialpose",
         "poseEstimateXDeviation": 0.5,
         "poseEstimateYDeviation": 0.5,
         "poseEstimateThetaDeviation": 0.26179939
       },
-      "imageMode": {}
+      "imageMode": {},
+      "fixedFrame": "mona_001/base_footprint"
     },
     "RosOut!1d6hnky": {
       "minLogLevel": 1,
@@ -113,7 +288,7 @@
       "fontSize": 12
     },
     "Image!1": {
-      "cameraTopic": "/camera/image_raw",
+      "cameraTopic": "/$robot_id/camera/image_raw",
       "cameraState": {
         "distance": 20,
         "perspective": true,
@@ -146,24 +321,30 @@
       "layers": {},
       "publish": {
         "type": "point",
-        "poseTopic": "/move_base_simple/goal",
-        "pointTopic": "/clicked_point",
-        "poseEstimateTopic": "/initialpose",
+        "poseTopic": "/mona_001/goal_pose",
+        "pointTopic": "/mona_001/clicked_point",
+        "poseEstimateTopic": "/mona_001/initialpose",
         "poseEstimateXDeviation": 0.5,
         "poseEstimateYDeviation": 0.5,
         "poseEstimateThetaDeviation": 0.26179939
       },
-      "imageMode": {}
+      "imageMode": {
+        "imageTopic": "/mona_001/camera/image_raw",
+        "calibrationTopic": "/mona_001/camera/camera_info",
+        "colorMode": "gradient",
+        "synchronize": false,
+        "flipHorizontal": false
+      }
     },
     "RawMessages!250uq96": {
-      "topicPath": "/robot_status"
+      "topicPath": "/mona_001/robot_status"
     },
     "RawMessages!1yybazb": {
-      "topicPath": "/system/health_state",
+      "topicPath": "/mona_001/system/health_state",
       "diffEnabled": false
     },
     "RawMessages!171sjqf": {
-      "topicPath": "/mux_status"
+      "topicPath": "/mona_001/mux_status"
     },
     "CallService!EStop": {
       "service": "/emergency_stop",
@@ -171,7 +352,7 @@
       "layout": "vertical",
       "timeoutSeconds": 10,
       "editingMode": false,
-      "serviceName": "/emergency_stop"
+      "serviceName": "/mona_001/emergency_stop"
     },
     "CallService!Reset": {
       "service": "/emergency_stop_reset",
@@ -179,7 +360,7 @@
       "layout": "vertical",
       "timeoutSeconds": 10,
       "editingMode": false,
-      "serviceName": "/emergency_stop_reset"
+      "serviceName": "/mona_001/emergency_stop_reset"
     },
     "Parameters!kvpas8": {},
     "Plot!urq9o1": {
@@ -192,30 +373,34 @@
       "showPlotValuesInLegend": false,
       "paths": [
         {
-          "timestampMethod": "receiveTime",
-          "value": "/cmd_teleop.linear.x",
+          "timestampMethod": "publishTime",
+          "value": "/mona_001/cmd_teleop.linear.x",
           "enabled": true,
           "color": "#00ff00",
           "id": "2f4cf70f-43be-4e08-95d6-bd080d56bac9",
-          "label": "Linear X"
+          "label": "Linear X",
+          "showLine": true
         },
         {
-          "timestampMethod": "receiveTime",
-          "value": "/cmd_teleop.linear.y",
+          "timestampMethod": "publishTime",
+          "value": "/mona_001/cmd_teleop.linear.y",
           "enabled": true,
           "color": "#0000ff",
           "id": "c02c6e23-9b4a-47bc-a830-59ca8084ad58",
-          "label": "Linear Y"
+          "label": "Linear Y",
+          "showLine": true
         },
         {
-          "timestampMethod": "receiveTime",
-          "value": "/cmd_teleop.angular.z",
+          "timestampMethod": "publishTime",
+          "value": "/mona_001/cmd_teleop.angular.z",
           "enabled": true,
           "color": "#ff0000",
           "id": "7a1083eb-dae1-42c9-93ab-5b3f00e117bb",
-          "label": "Rotation Z"
+          "label": "Rotation Z",
+          "showLine": true
         }
-      ]
+      ],
+      "showLegend": true
     },
     "Plot!3hvimad": {
       "isSynced": true,
@@ -227,24 +412,24 @@
       "showPlotValuesInLegend": false,
       "paths": [
         {
-          "timestampMethod": "receiveTime",
-          "value": "/cmd_nav.linear.x",
+          "timestampMethod": "publishTime",
+          "value": "/mona_001/cmd_nav.linear.x",
           "enabled": true,
           "color": "#00ff00",
           "id": "2f4cf70f-43be-4e08-95d6-bd080d56bac9",
           "label": "Linear X"
         },
         {
-          "timestampMethod": "receiveTime",
-          "value": "/cmd_nav.linear.y",
+          "timestampMethod": "publishTime",
+          "value": "/mona_001/cmd_nav.linear.y",
           "enabled": true,
           "color": "#0000ff",
           "id": "c02c6e23-9b4a-47bc-a830-59ca8084ad58",
           "label": "Linear Y"
         },
         {
-          "timestampMethod": "receiveTime",
-          "value": "/cmd_nav.angular.z",
+          "timestampMethod": "publishTime",
+          "value": "/mona_001/cmd_nav.angular.z",
           "enabled": true,
           "color": "#ff0000",
           "id": "7a1083eb-dae1-42c9-93ab-5b3f00e117bb",
@@ -262,28 +447,31 @@
       "showPlotValuesInLegend": false,
       "paths": [
         {
-          "timestampMethod": "receiveTime",
-          "value": "/hardware/motor_cmd.linear.x",
+          "timestampMethod": "publishTime",
+          "value": "/mona_001/hardware/motor_cmd.linear.x",
           "enabled": true,
           "color": "#00ff00",
           "id": "2f4cf70f-43be-4e08-95d6-bd080d56bac9",
-          "label": "Linear X"
+          "label": "Linear X",
+          "showLine": false
         },
         {
-          "timestampMethod": "receiveTime",
-          "value": "/hardware/motor_cmd.linear.y",
+          "timestampMethod": "publishTime",
+          "value": "/mona_001/hardware/motor_cmd.linear.y",
           "enabled": true,
           "color": "#0000ff",
           "id": "c02c6e23-9b4a-47bc-a830-59ca8084ad58",
-          "label": "Linear Y"
+          "label": "Linear Y",
+          "showLine": false
         },
         {
-          "timestampMethod": "receiveTime",
-          "value": "/hardware/motor_cmd.angular.z",
+          "timestampMethod": "publishTime",
+          "value": "/mona_001/hardware/motor_cmd.angular.z",
           "enabled": true,
           "color": "#ff0000",
           "id": "7a1083eb-dae1-42c9-93ab-5b3f00e117bb",
-          "label": "Rotation Z"
+          "label": "Rotation Z",
+          "showLine": false
         }
       ]
     }
@@ -308,7 +496,7 @@
                 "direction": "column"
               },
               "direction": "column",
-              "splitPercentage": 30
+              "splitPercentage": 33.33333333333333
             },
             "second": {
               "first": "CallService!EStop",
@@ -320,7 +508,7 @@
           },
           "second": "Parameters!kvpas8",
           "direction": "column",
-          "splitPercentage": 60
+          "splitPercentage": 59.90639625585024
         },
         "direction": "row",
         "splitPercentage": 50
@@ -341,5 +529,8 @@
     },
     "direction": "row",
     "splitPercentage": 50
+  },
+  "globalVariables": {
+    "robot_id": "mona_001"
   }
 }

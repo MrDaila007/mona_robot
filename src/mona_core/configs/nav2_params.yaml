@@ -1,12 +1,20 @@
 amcl:
   ros__parameters:
     use_sim_time: True
+    set_initial_pose: True
+    initial_pose:
+      x: 0.0
+      y: 0.0
+      z: 0.0
+      yaw: 0.0
+
     alpha1: 0.2
     alpha2: 0.2
     alpha3: 0.2
     alpha4: 0.2
     alpha5: 0.2
-    base_frame_id: "base_footprint"
+
+    base_frame_id: "mona_001/base_link"
     beam_skip_distance: 0.5
     beam_skip_error_threshold: 0.9
     beam_skip_threshold: 0.3
@@ -20,7 +28,7 @@ amcl:
     max_beams: 60
     max_particles: 2000
     min_particles: 500
-    odom_frame_id: "odom"
+    odom_frame_id: "mona_001/odom"
     pf_err: 0.05
     pf_z: 0.99
     recovery_alpha_fast: 0.0
@@ -44,7 +52,7 @@ bt_navigator:
     use_sim_time: True
     global_frame: map
     robot_base_frame: base_link
-    odom_topic: /odom
+    odom_topic: odom
     bt_loop_duration: 10
     default_server_timeout: 20
     wait_for_service_timeout: 1000
@@ -126,6 +134,7 @@ controller_server:
       plugin: "nav2_controller::SimpleProgressChecker"
       required_movement_radius: 0.05
       movement_time_allowance: 5.0
+      
     # Goal checker parameters
     #precise_goal_checker:
     #  plugin: "nav2_controller::SimpleGoalChecker"
@@ -139,6 +148,7 @@ controller_server:
       yaw_goal_tolerance: 0.070 # ~4 градуса
       trans_stopped_velocity: 0.02
       rot_stopped_velocity: 0.02
+    
     # DWB parameters
     FollowPath:
       plugin: "dwb_core::DWBLocalPlanner"
@@ -174,7 +184,9 @@ controller_server:
       transform_tolerance: 0.2
       short_circuit_trajectory_evaluation: True
       stateful: True
+      
       critics: ["RotateToGoal", "Oscillation", "BaseObstacle", "GoalAlign", "PathAlign", "PathDist", "GoalDist"]
+      
       BaseObstacle.scale: 0.02
       PathAlign.scale: 32.0
       PathAlign.forward_point_distance: 0.1
@@ -192,8 +204,9 @@ local_costmap:
       update_frequency: 5.0
       publish_frequency: 2.0
       global_frame: odom
-      robot_base_frame: base_link
+      robot_base_frame: base_footprint
       use_sim_time: True
+      transform_tolerance: 2.0
       rolling_window: true
       width: 3
       height: 3
@@ -216,7 +229,8 @@ local_costmap:
         mark_threshold: 0
         observation_sources: scan
         scan:
-          topic: /scan
+          topic: scan
+          qos_reliability: 1            # Reliable
           max_obstacle_height: 2.0
           clearing: True
           marking: True
@@ -238,8 +252,9 @@ global_costmap:
       update_frequency: 1.0
       publish_frequency: 1.0
       global_frame: map
-      robot_base_frame: base_link
+      robot_base_frame: base_footprint
       use_sim_time: True
+      transform_tolerance: 2.0
       footprint: "[ [0.625, 0.4], [0.625, -0.4], [-0.625, -0.4], [-0.625, 0.4] ]"
       footprint_padding: 0.05
       resolution: 0.05
@@ -250,7 +265,8 @@ global_costmap:
         enabled: True
         observation_sources: scan
         scan:
-          topic: /scan
+          topic: scan
+          qos_reliability: 1    # Reliable
           max_obstacle_height: 2.0
           clearing: True
           marking: True

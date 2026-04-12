@@ -4,8 +4,8 @@
 
 <package format="3">
   <name>mona_description</name>
-  <version>0.0.0</version>
-  <description>MONA description</description>
+  <version>0.1.0</version>
+  <description>URDF models, meshes, and Gazebo simulation descriptions for the MONA swarm robot.</description>
   <maintainer email="vladubase@gmail.com">vladubase</maintainer>
   <license>Apache-2.0</license>
 

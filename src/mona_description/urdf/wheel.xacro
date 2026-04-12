@@ -52,8 +52,8 @@
       <origin xyz="${x} ${y} ${height_offset}" rpy="0 0 0"/>
       <axis xyz="0 1 0"/>
 
-      <!-- Damping (Н·м·с/рад): создаёт сопротивление, пропорциональное скорости. Это предотвратит «бесконечное» вращение колес по инерции.-->
-      <!-- Friction (Н·м): минимальное усилие, нужное для начала вращения. Помогает робоу удерживаться на месте и не «дрейфовать» от вибраций.-->
+      <!-- Damping (Nm s/rad): Creates resistance proportional to speed. This prevents the wheels from spinning "infinitely" due to inertia.-->
+      <!-- Friction (Nm): The minimum force required to initiate rotation. Helps the robot stay in place and prevent it from "drifting" due to vibrations.-->
       <limit effort="1000.0" velocity="20.0"/>
       <dynamics damping="1.5" friction="1.0"/>
     </joint>
@@ -71,9 +71,9 @@
         <surface>
           <friction>
             <ode>
-              <fdir1 ignition:expressed_in="base_footprint">${fdir}</fdir1>           <!-- Ось роликов -->
-              <mu>0.05</mu>   <!-- Коэффициент трения вдоль оси fdir (должен быть 0, чтобы катилось).  -->
-              <mu2>1.0</mu2>  <!-- Коэффициент трения поперёк оси fdir(должен быть 1, чтобы катилось). -->
+              <fdir1 ignition:expressed_in="base_footprint">${fdir}</fdir1>   <!-- Roller axis -->
+              <mu>0.05</mu>   <!-- The coefficient of friction along the axis fdir (must be 0 for it to roll). -->
+              <mu2>1.0</mu2>  <!-- The coefficient of friction across the axis fdir(must be 1 for it to roll). -->
             </ode>
           </friction>
           <contact>

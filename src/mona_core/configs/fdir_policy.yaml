@@ -1,77 +1,74 @@
 fdir_manager:
   ros__parameters:
-    # Глобальные тайминги
-    recovery_power_off_time:  3.0   # [сек] Держать выключенным
-    timeout_before_reboot:    5.0   # [сек] Ждать возвращения ноды перед жёстким ребутом
+    # Global FDIR timings
+    recovery_power_off_time:  3.0   # [sec] Duration to hold power cutoff
+    timeout_before_reboot:    5.0   # [sec] Watchdog timeout before hard reboot
 
     components:
-      # --- TIER_FATAL --- #
-      # Контроллер низкого уровня
+      # --- TIER: FATAL --- #
       motor_controller:
         enabled:          false
         tier:             "FATAL"
         node_name:        "mona_base_node"
-        power_topic:      "/hardware/power/base_mcu"
-        startup_time:     2.0       # [сек] Быстрая загрузка контроллера моторов
-      # Главный модуль безопасности
+        power_topic:      "hardware/power/base_mcu"
+        startup_time:     10.0      # [sec] Fast boot for motor controllers
+      
       safety_core:
         enabled:          true
         tier:             "FATAL"
         node_name:        "safety_node"
-        power_topic:      "/hardware/power/safety_mcu"
-        startup_time:     1.0       # [сек]
-      # Диспетчер управления (Twist Mux)
+        power_topic:      "hardware/power/safety_mcu"
+        startup_time:     10.0      # [sec]
+      
       control_mux:
         enabled:          true
         tier:             "FATAL"
         node_name:        "twist_mux_node"
-        power_topic:      "/hardware/power/twist_mux"
-        startup_time:     1.0       # [сек]
+        power_topic:      "hardware/power/twist_mux"
+        startup_time:     5.0       # [sec]
       
-      # --- TIER_PRIMARY --- #
-      # Модуль восприятия (Сборка всех лидаров в одно облако)
+      # --- TIER: PRIMARY --- #
       perception_merger:
         enabled:          true
         tier:             "PRIMARY"
         node_name:        "mona_lidar_merger"
-        power_topic:      "/hardware/power/perception_pc"
+        power_topic:      "hardware/power/perception_pc"
         fallback_action:  "drive_blind"
-        startup_time:     2.0       # [сек]
-      # Лидар передний
+        startup_time:     10.0      # [sec]
+      
       lidar_front:
         enabled:          false
         tier:             "PRIMARY"
         node_name:        "mona_lidar_front"
-        power_topic:      "/hardware/power/lidar_front"
+        power_topic:      "hardware/power/lidar_front"
         fallback_action:  "drive_reverse"
-        startup_time:     40.0      # [сек] Долгая загрузка Linux внутри лидара
+        startup_time:     40.0      # [sec] Extended boot time for internal Linux OS
       
-      # --- TIER_AUXILIARY --- #
-      # Лидар задний
+      # --- TIER: AUXILIARY --- #
       lidar_back:
         enabled:          false
         tier:             "AUXILIARY"
         node_name:        "mona_lidar_back"
-        power_topic:      "/hardware/power/lidar_back"
-        startup_time:     40.0      # [сек]
-      # Лидар левый
+        power_topic:      "hardware/power/lidar_back"
+        startup_time:     40.0      # [sec]
+      
       lidar_left:
         enabled:          false
         tier:             "AUXILIARY"
         node_name:        "mona_lidar_left"
-        power_topic:      "/hardware/power/lidar_left"
-        startup_time:     40.0      # [сек]
-      # Лидар правый
+        power_topic:      "hardware/power/lidar_left"
+        startup_time:     40.0      # [sec]
+      
       lidar_right:
         enabled:          false
         tier:             "AUXILIARY"
         node_name:        "mona_lidar_right"
-        power_topic:      "/hardware/power/lidar_right"
-        startup_time:     40.0      # [сек]
-      # IMU сенсор
+        power_topic:      "hardware/power/lidar_right"
+        startup_time:     40.0      # [sec]
+      
       imu_sensor:
         enabled:          false
         tier:             "AUXILIARY"
         node_name:        "mona_imu"
-        power_topic:      "/hardware/power/imu"
-        startup_time:     1.0       # [сек]
+        power_topic:      "hardware/power/imu"
+        startup_time:     3.0       # [sec]

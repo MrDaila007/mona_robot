@@ -43,9 +43,10 @@
         <always_on>true</always_on>
         <update_rate>100</update_rate>
         <visualize>false</visualize>
-        <topic>/${name}/data</topic>
+        <topic>/$(arg namespace)/${name}/data</topic>
         <pose>0 0 0 0 0 0</pose>
-        <ignition_frame_id>${name}_link</ignition_frame_id>
+        <ignition_frame_id>$(arg namespace)/${name}_link</ignition_frame_id>
+        <gz_frame_id>$(arg namespace)/${name}_link</gz_frame_id>
         <imu>
           <angular_velocity>
             <x>

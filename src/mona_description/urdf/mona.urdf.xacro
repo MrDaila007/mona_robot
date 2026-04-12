@@ -22,6 +22,8 @@
   <xacro:include filename="imu.xacro"/>
   <xacro:include filename="camera.xacro"/>
 
+  <xacro:arg name="namespace" default=""/>
+
   <material name="orange">
     <color rgba="1.0 0.5 0.0 1.0"/>
   </material>
@@ -69,6 +71,7 @@
     <collision>
       <origin xyz="0 0 0" rpy="0 0 0"/>
       <geometry>
+        <!-- <box size="${base_length} ${base_width} ${base_height}"/> -->
         <mesh filename="package://mona_description/meshes/base.stl" scale="0.001 0.001 0.001"/>
       </geometry>
     </collision>
@@ -145,7 +148,7 @@
   <gazebo>
     <!-- TF -->
     <plugin filename="libignition-gazebo-joint-state-publisher-system.so" name="ignition::gazebo::systems::JointStatePublisher">
-      <topic>joint_states</topic>
+      <topic>/$(arg namespace)/joint_states</topic>
     </plugin>
 
     <!-- Mecanum Wheels -->
@@ -162,14 +165,15 @@
       <min_acceleration>-2.5</min_acceleration>
       <max_acceleration>2.5</max_acceleration>
 
-      <topic>/hardware/motor_cmd</topic>
+      <topic>/$(arg namespace)/hardware/motor_cmd</topic>
     </plugin>
 
     <!-- Sensor: Odometry -->    
     <plugin filename="libignition-gazebo-odometry-publisher-system.so" name="ignition::gazebo::systems::OdometryPublisher">
-      <odom_frame>odom</odom_frame>
-      <robot_base_frame>base_footprint</robot_base_frame>
-      <odom_topic>/odom</odom_topic>
+      <odom_frame>$(arg namespace)/odom</odom_frame>
+      <robot_base_frame>$(arg namespace)/base_footprint</robot_base_frame>
+      <odom_topic>/$(arg namespace)/odom</odom_topic>
+      <tf_topic>/$(arg namespace)/tf</tf_topic>
       <odom_publish_frequency>50</odom_publish_frequency>
       <dimensions>3</dimensions>
     </plugin>
