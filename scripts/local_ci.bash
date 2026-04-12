@@ -1,10 +1,6 @@
 #!/bin/bash
 
 # ==============================================================================
-# Script Name: local_ci.bash
-# Description: Automates the Clean -> Build -> Test cycle for ROS 2 workspace
-# Usage:       Run from the workspace root (e.g., ./scripts/local_ci.bash)
-# 
 # Copyright 2026 vladubase
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -39,28 +35,40 @@ if [ ! -d "src" ]; then
 fi
 
 # ------------------------------------------------------------------------------
-# 1. Auto-format Code (Fix style before testing)
+# 1. Auto-format Code and Static Analysis (Fix style before testing)
 # ------------------------------------------------------------------------------
-echo -e "${YELLOW}[1/4] Auto-formatting code to match standards...${NC}"
+echo -e "${YELLOW}[1/4] Auto-formatting code to match Enterprise standards...${NC}"
 
-# Исправляем C++ (используем конфиг uncrustify)
+# C++ Formatting (uncrustify)
 if command -v ament_uncrustify &> /dev/null; then
     ament_uncrustify -c configs/uncrustify.cfg --reformat src/ > /dev/null 2>&1
-    echo -e "${GREEN}[OK] C++    formatted.${NC}"
+    echo -e "${GREEN}[OK] C++ formatted (ament_uncrustify).${NC}"
 else
     echo -e "${RED}[WARN] ament_uncrustify not found, skipping C++ format.${NC}"
 fi
 
-# Исправляем Python (используем autopep8)
-if command -v autopep8 &> /dev/null; then
-    autopep8 --in-place --recursive --max-line-length 120 src/
-    echo -e "${GREEN}[OK] Python formatted.${NC}"
+# Python Formatting (Black)
+echo -e "${BLUE}[CI] Running Black formatter...${NC}"
+if python3 -m black --version &> /dev/null; then
+    python3 -m black src/ scripts/
+    echo -e "${GREEN}[OK] Python formatted (Black).${NC}"
 else
-    python3 -m autopep8 --in-place --recursive --global-config configs/setup.cfg src/ > /dev/null 2>&1 || true
-    echo -e "${GREEN}[OK] Python formatted (via module).${NC}"
+    echo -e "${RED}[ERROR] Black formatter not found. Run 'pip install black' locally.${NC}"
+    exit 1
 fi
 
-# Удаляем пробелы в конце строк (trailing whitespace) во всех CMakeLists.txt
+# Python Linting (Flake8)
+echo -e "${BLUE}[CI] Running Flake8 linter...${NC}"
+if python3 -m flake8 --version &> /dev/null; then
+    # Check for critical errors (syntax, undefined variables)
+    python3 -m flake8 src/ scripts/ --count --select=E9,F63,F7,F82 --show-source --statistics
+    echo -e "${GREEN}[OK] Python linting passed (Flake8).${NC}"
+else
+    echo -e "${RED}[ERROR] Flake8 linter not found. Run 'pip install flake8' locally.${NC}"
+    exit 1
+fi
+
+# Strip trailing whitespace from CMakeLists.txt
 find src -name "CMakeLists.txt" -exec sed -i 's/[[:space:]]*$//' {} +
 
 # ------------------------------------------------------------------------------
@@ -68,7 +76,7 @@ find src -name "CMakeLists.txt" -exec sed -i 's/[[:space:]]*$//' {} +
 # ------------------------------------------------------------------------------
 echo -e "${YELLOW}[2/4] Cleaning workspace (build, install, log)...${NC}"
 
-# Проверяем успешность очистки напрямую
+# Check the success of cleaning directly
 if ! rm -rf build/* install/* log/*; then
     echo -e "${RED}[ERROR] Failed to clean directories.${NC}"
     exit 1
@@ -98,7 +106,6 @@ else
 fi
 
 echo -e "${BLUE}[CI] Executing colcon test...${NC}"
-# Убираем жесткий exit 1. Мы хотим собрать coverage даже если какие-то тесты упали!
 colcon test || echo -e "${YELLOW}[WARN] Some tests failed during execution. Proceeding to report generation...${NC}"
 
 # ------------------------------------------------------------------------------
@@ -107,15 +114,11 @@ colcon test || echo -e "${YELLOW}[WARN] Some tests failed during execution. Proc
 echo -e "${BLUE}[CI] Generating Test Coverage Report...${NC}"
 
 if command -v lcov &> /dev/null; then
-    # Собираем данные. Направляем вывод в /dev/null, чтобы не спамить в консоль
     lcov --capture --directory build --output-file build/coverage.info > /dev/null 2>&1
-    
-    # Фильтруем системные либы и тесты, оставляем только исходный код
     lcov --remove build/coverage.info '/usr/*' '/opt/ros/*' '*/install/*' '*/test/*' '*/build/*' --output-file build/coverage.info > /dev/null 2>&1
     
     echo -e "${GREEN}[OK] Coverage report generated at build/coverage.info${NC}"
     
-    # --- ВЫВОД КРАСИВОЙ ТАБЛИЦЫ В ТЕРМИНАЛ ---
     echo -e "${YELLOW}\n================================================================================${NC}"
     echo -e "${YELLOW}                             TEST COVERAGE SUMMARY                              ${NC}"
     echo -e "${YELLOW}================================================================================${NC}"
@@ -130,7 +133,6 @@ fi
 # ------------------------------------------------------------------------------
 echo -e "${BLUE}[CI] Validating XML Test Results...${NC}"
 
-# Эта команда проверит реальные XML отчеты и вернет 1, если были ошибки тестов/линтеров
 if colcon test-result --all --verbose; then
     echo -e "${GREEN}====================================================${NC}"
     echo -e "${GREEN}[SUCCESS] All checks passed. Build and Tests are OK.${NC}"
