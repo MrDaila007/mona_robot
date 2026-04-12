@@ -40,6 +40,15 @@ enum class SafetyState {
     EMERGENCY  // E-STOP active (contactors physically opened)
 };
 
+enum class FdirCommand {
+    SYSTEM_STARTUP,
+    EMERGENCY,
+    PROTECTIVE_STOP,
+    DEGRADED,
+    SOFTWARE_OK,
+    UNKNOWN
+};
+
 class SafetyNode : public rclcpp_lifecycle::LifecycleNode {
 public:
     explicit SafetyNode(const rclcpp::NodeOptions &options);

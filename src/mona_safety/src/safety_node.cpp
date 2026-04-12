@@ -15,6 +15,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <unordered_map>
 #include "mona_safety/safety_node.hpp"
 
 #define COLOR_BLUE  "\033[34m"
@@ -215,60 +216,87 @@ void SafetyNode::health_state_callback(const std_msgs::msg::String::SharedPtr ms
     bool        state_changed = (fdir_state != last_fdir_state_);
     last_fdir_state_          = fdir_state;
 
-    if (fdir_state == "SYSTEM_STARTUP") {
-        // 1. Initialization (Contactors OFF)
-        current_state_ = SafetyState::PROTECTIVE_STOP;
-        publish_stop();
-        set_hardware_contactors(false);
-        if (state_changed) {
-            RCLCPP_INFO(
-                get_logger(),
-                COLOR_BLUE "System is initializing... Contactors OFF." COLOR_RESET);
-        }
-    } else if (fdir_state == "EMERGENCY") {
-        // 2. Emergency (Latch E-Stop, contactors OFF)
-        e_stop_active_ = true;
-        current_state_ = SafetyState::EMERGENCY;
-        publish_stop();
-        set_hardware_contactors(false);
-        if (state_changed) {
-            RCLCPP_FATAL(get_logger(), "FDIR Commanded EMERGENCY! Contactors OFF.");
-        }
-    } else if (fdir_state == "PROTECTIVE_STOP") {
-        // 3. Protective Stop (Power is ON, but motion is halted)
-        current_state_ = SafetyState::PROTECTIVE_STOP;
-        publish_stop();
-        if (!e_stop_active_) {set_hardware_contactors(true);}
-        if (state_changed) {
-            RCLCPP_WARN(
-                get_logger(), "FDIR Commanded PROTECTIVE STOP. Waiting for primary sensors...");
-        }
-    } else if (fdir_state == "DEGRADED") {
-        // 4. Degraded Mode (Operational, but with velocity restrictions)
-        current_state_ = SafetyState::DEGRADED;
-        if (!e_stop_active_) {
-            set_hardware_contactors(true);
-        }
-    } else if (fdir_state == "SOFTWARE_OK") {
-        // 5. Normal Operation
-        if (!e_stop_active_) {
-            current_state_ = SafetyState::NORMAL;
-            set_hardware_contactors(true);
-        } else {
+    // Static map for string-to-enum conversion
+    static const std::unordered_map<std::string, FdirCommand> command_map = {
+        {"SYSTEM_STARTUP", FdirCommand::SYSTEM_STARTUP},
+        {"EMERGENCY", FdirCommand::EMERGENCY},
+        {"PROTECTIVE_STOP", FdirCommand::PROTECTIVE_STOP},
+        {"DEGRADED", FdirCommand::DEGRADED},
+        {"SOFTWARE_OK", FdirCommand::SOFTWARE_OK}
+    };
+
+    // Parse the incoming command
+    auto        it  = command_map.find(fdir_state);
+    FdirCommand cmd = (it != command_map.end()) ? it->second : FdirCommand::UNKNOWN;
+
+    // Execute state transition logic based on the parsed command
+    switch (cmd) {
+        case FdirCommand::SYSTEM_STARTUP:
+            // 1. Initialization (Contactors OFF)
+            current_state_ = SafetyState::PROTECTIVE_STOP;
+            publish_stop();
+            set_hardware_contactors(false);
+            if (state_changed) {
+                RCLCPP_INFO(
+                    get_logger(),
+                    COLOR_BLUE "System is initializing... Contactors OFF." COLOR_RESET);
+            }
+            break;
+
+        case FdirCommand::EMERGENCY:
+            // 2. Emergency (Latch E-Stop, contactors OFF)
+            e_stop_active_ = true;
+            current_state_ = SafetyState::EMERGENCY;
+            publish_stop();
+            set_hardware_contactors(false);
+            if (state_changed) {
+                RCLCPP_FATAL(get_logger(), "FDIR Commanded EMERGENCY! Contactors OFF.");
+            }
+            break;
+
+        case FdirCommand::PROTECTIVE_STOP:
+            // 3. Protective Stop (Power is ON, but motion is halted)
+            current_state_ = SafetyState::PROTECTIVE_STOP;
+            publish_stop();
+            if (!e_stop_active_) {set_hardware_contactors(true);}
             if (state_changed) {
                 RCLCPP_WARN(
-                    get_logger(),
-                    "FDIR Commanded SOFTWARE_OK, but E-STOP is latched! Ignoring.");
+                    get_logger(), "FDIR Commanded PROTECTIVE STOP. Waiting for primary sensors...");
             }
-        }
-    } else {
-        // 6. UNKNOWN STATE (Global fallback - power off everything)
-        set_hardware_contactors(false);
-        if (state_changed) {
-            RCLCPP_ERROR(
-                get_logger(), "UNKNOWN FDIR STATE: '%s'. Safety shutdown triggered!",
-                fdir_state.c_str());
-        }
+            break;
+
+        case FdirCommand::DEGRADED:
+            // 4. Degraded Mode (Operational, but with velocity restrictions)
+            current_state_ = SafetyState::DEGRADED;
+            if (!e_stop_active_) {
+                set_hardware_contactors(true);
+            }
+            break;
+
+        case FdirCommand::SOFTWARE_OK:
+            // 5. Normal Operation
+            if (!e_stop_active_) {
+                current_state_ = SafetyState::NORMAL;
+                set_hardware_contactors(true);
+            } else {
+                if (state_changed) {
+                    RCLCPP_WARN(
+                        get_logger(),
+                        "FDIR Commanded SOFTWARE_OK, but E-STOP is latched! Ignoring.");
+                }
+            }
+            break;
+
+        case FdirCommand::UNKNOWN:
+        default:
+            // 6. UNKNOWN STATE (Global fallback - power off everything)
+            set_hardware_contactors(false);
+            if (state_changed) {
+                RCLCPP_ERROR(
+                    get_logger(), "UNKNOWN FDIR STATE: '%s'. Safety shutdown triggered!",
+                    fdir_state.c_str());
+            }
+            break;
     }
 }
 
