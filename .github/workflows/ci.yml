@@ -23,10 +23,11 @@ on:
 jobs:
   build-and-test:
     strategy:
+      fail-fast: false
       matrix:
         os: [ubuntu-22.04, ubuntu-24.04]
     name: Build & Test on ${{ matrix.os }}
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
@@ -48,8 +49,9 @@ jobs:
           build-args: |
             USER_UID=1001
             USER_GID=1001
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          # Isolate cache using OS scope
+          cache-from: type=gha,scope=docker-cache-${{ matrix.os }}
+          cache-to: type=gha,mode=max,scope=docker-cache-${{ matrix.os }}
           no-cache: ${{ github.event_name == 'schedule' }}
 
       # 3. Execute the testing script within an isolated container
@@ -73,13 +75,14 @@ jobs:
         if: success() || failure() # Step must execute even if tests fail
         with:
           report_paths: 'build/**/test_results/**/*.xml'
-          check_name: "ROS 2 Test Report"
+          check_name: "ROS 2 Test Report (${{ matrix.os }})"
       
       # 5. Upload coverage report to Codecov
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v6
         if: env.CODECOV_TOKEN != null # Executes only if the CODECOV_TOKEN secret is provisioned
         with:
-          files: build/coverage.info
-          fail_ci_if_error: false
           token: ${{ secrets.CODECOV_TOKEN }}
+          files: build/coverage.info
+          flags: ${{ matrix.os }}
+          fail_ci_if_error: false
