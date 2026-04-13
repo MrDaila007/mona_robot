@@ -40,7 +40,7 @@ def generate_launch_description():
     # --- VARIABLES AND PATHS --- #
     pkg_mona_description = get_package_share_directory("mona_description")
     pkg_ros_gz_sim = get_package_share_directory("ros_gz_sim")
-    
+
     world_file = os.path.join(pkg_mona_description, "worlds", "warehouse.sdf")
 
     # --- LAUNCH ARGUMENTS --- #

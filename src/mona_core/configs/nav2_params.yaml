@@ -144,12 +144,12 @@ controller_server:
     general_goal_checker:
       stateful: True
       plugin: "nav2_controller::SimpleGoalChecker"
-      xy_goal_tolerance: 0.030  # 30 мм
-      yaw_goal_tolerance: 0.070 # ~4 градуса
+      xy_goal_tolerance: 0.030  # 30 mm
+      yaw_goal_tolerance: 0.070 # ~4 degrees
       trans_stopped_velocity: 0.02
       rot_stopped_velocity: 0.02
     
-    # DWB parameters
+# DWB parameters
     FollowPath:
       plugin: "dwb_core::DWBLocalPlanner"
       debug_trajectory_details: True
@@ -159,25 +159,28 @@ controller_server:
       min_vel_y: -0.2
       max_vel_y: 0.2
       max_vel_theta: 1.0
-      min_speed_xy: 0.0         # Минимально возможная скорость по прямой (5 см/с)
-      max_speed_xy: 0.3         # Минимальная скорость вращения (~4.5 град/с).
-      min_speed_theta: 0.0
+      
+      # Velocity thresholds to overcome physical inertia and prevent creeping
+      min_speed_xy: 0.05        # Minimum straight-line velocity (5 cm/s)
+      max_speed_xy: 0.3         # Maximum straight-line velocity (30 cm/s)
+      min_speed_theta: 0.08     # Minimum rotational velocity (~4.5 deg/s)
 
-      acc_lim_x: 1.5            # Смягчаем рывок вперед
-      acc_lim_y: 1.0
-      acc_lim_theta: 1.0        # Смягчаем вращение
-      decel_lim_x: -1.5         # Мягкое торможение
-      decel_lim_y: -1.0
-      decel_lim_theta: -1.0     # Мягкое торможение при вращении
+      # Kinematic smoothing (Jerk & Acceleration limits)
+      acc_lim_x: 1.5            # Forward acceleration limit
+      acc_lim_y: 1.0            # Lateral acceleration limit (strafing)
+      acc_lim_theta: 1.0        # Rotational acceleration limit
+      decel_lim_x: -1.5         # Smooth forward deceleration
+      decel_lim_y: -1.0         # Smooth lateral deceleration
+      decel_lim_theta: -1.0     # Smooth rotational deceleration
 
       vx_samples: 15
       vy_samples: 15
       vtheta_samples: 20
 
-      sim_time: 1.5             # Горизонт симуляции
+      sim_time: 1.5             # Trajectory simulation horizon
 
-      xy_goal_tolerance: 0.030  # 30 мм
-      yaw_goal_tolerance: 0.070 # ~4 градуса
+      xy_goal_tolerance: 0.030  # 30 mm
+      yaw_goal_tolerance: 0.070 # ~4 degrees
 
       linear_granularity: 0.05
       angular_granularity: 0.025
@@ -239,7 +242,7 @@ local_costmap:
           raytrace_min_range: 0.0
           obstacle_max_range: 2.5
           obstacle_min_range: 0.0
-          expected_publish_period: 0.0  # QoS для RELIABLE
+          expected_publish_period: 0.0  # QoS constraint for RELIABLE profiles
           inf_is_valid: True
       static_layer:
         plugin: "nav2_costmap_2d::StaticLayer"
@@ -275,7 +278,7 @@ global_costmap:
           raytrace_min_range: 0.0
           obstacle_max_range: 2.5
           obstacle_min_range: 0.0
-          expected_publish_period: 0.0  # QoS для RELIABLE
+          expected_publish_period: 0.0  # QoS constraint for RELIABLE profiles
           inf_is_valid: True
       static_layer:
         plugin: "nav2_costmap_2d::StaticLayer"
