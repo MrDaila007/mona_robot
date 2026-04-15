@@ -12,7 +12,7 @@
 ![Mona Robot Simulation Preview](docs/images/mona_gazebo_preview.png)
 
 ## About the Project
-**MONA** (Modular Open Navigating AMR) is a scalable robot fleet management architecture. The primary focus is on safety-critical operations, hardware redundancy, and fault tolerance (FDIR) in compliance with industrial standards.
+**MONA** (Modular Open Navigating AMR) is a scalable robot fleet management architecture. The primary focus is on safety-critical operations, hardware redundancy, and fault tolerance (FDIR concept) in compliance with industrial standards.
 
 Within its microservice architecture, MONA functions as an Edge Agent in the distributed [**LISA (Logistics Intelligence & Swarm API)**](https://github.com/vladubase/lisa_api) ecosystem. LISA acts as the central fleet orchestrator, while MONA provides hardware abstraction, local navigation, and sensory data processing.
 
@@ -27,7 +27,7 @@ Within its microservice architecture, MONA functions as an Edge Agent in the dis
 
 ## Component Architecture
 The project is built upon the ROS 2 component architecture (Zero-copy IPC), divided into the following logical domains:
-* **`mona_core/`** — Main orchestrator package (Bringup). Contains unified `.launch.py` files, global parameters (`.yaml`), maps, and the Python-based FDIR Lifecycle Manager.
+* **`mona_core/`** — Main orchestrator package (Bringup). Contains unified `.launch.py` files, global parameters (`.yaml`), maps, and FDIR Lifecycle Manager.
 * **`mona_description/`** — Visual and physical robot representation (URDF, Xacro, 3D meshes).
 * **`mona_safety/`** — Hardware sentinel (`SafetyNode`). Handles Emergency Stops (E-Stop), controls hardware contactors, limits velocities during system degradation, and escalates faults upon unauthorized movement via odometry validation.
 * **`mona_control/`** — Dispatch module (Twist Mux). Responsible for routing commands from the gamepad and Nav2, EMA smoothing, velocity interpolation at 100 Hz, and preempting autonomous tasks during manual overrides.

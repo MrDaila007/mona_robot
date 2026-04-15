@@ -17,10 +17,6 @@
 # ==============================================================================
 # MONA FDIR Manager (Fault Detection, Isolation, and Recovery)
 # ==============================================================================
-# This node performs two critical functions:
-# 1. Lifecycle Manager: Handles the orchestrated initialization and startup of nodes.
-# 2. FDIR Monitor: Tracks system health, and executes software/hardware recovery reboots.
-# ==============================================================================
 
 import os
 import yaml
@@ -38,9 +34,31 @@ COLOR_BLUE = "\033[94m"
 COLOR_BOLD_RED = "\033[1;31m"
 COLOR_RESET = "\033[0m"
 
+# ==============================================================================
+# GLOBAL CONSTANTS & TUNING PARAMETERS
+# ==============================================================================
+STARTUP_TIMEOUT_BUFFER_SEC = (
+    10.0  # Buffer time added to expected startup time before declaring a boot failure
+)
+WAKEUP_RETRY_INTERVAL_SEC = 2.0  # Time between consecutive wakeup requests
+MAX_WAKEUP_ATTEMPTS = (
+    5  # Maximum number of software wakeup requests before declaring DEFECTIVE
+)
+SOFTWARE_DISCHARGE_TIME = (
+    0.5  # Virtual "discharge" time for software cleanup operations
+)
 
-# Possible global system health states
+# Security: Allowed standard ROS 2 Lifecycle State IDs (0 to 15)
+# Any ID outside this set is treated as memory corruption or a cybersecurity breach.
+VALID_LIFECYCLE_STATES = {0, 1, 2, 3, 4, 10, 11, 12, 13, 14, 15}
+
+
 class SystemHealthState:
+    """
+    Enumerates the global system health states.
+    Dictates whether the robot can move and how hardware contactors react.
+    """
+
     SYSTEM_STARTUP = "SYSTEM_STARTUP"  # Initialization in progress. Contactors OFF.
     SOFTWARE_OK = "SOFTWARE_OK"  # Normal operation.
     DEGRADED = "DEGRADED"  # Operating at reduced velocities.
@@ -51,26 +69,54 @@ class SystemHealthState:
     EMERGENCY = "EMERGENCY"  # Fatal error, hardware contactors opened.
 
 
-# Finite State Machine (FSM) for individual component recovery
 class ModuleRecoveryState:
+    """
+    Finite State Machine (FSM) states for individual component recovery.
+    """
+
     INITIAL_STARTUP = "INITIAL_STARTUP"  # Initial boot sequence upon robot power-up.
-    NONE = "NONE"  # Operating nominally.
-    POWER_OFF = "POWER_OFF"  # Initiating power cutoff.
-    WAIT_DISCHARGE = "WAIT_DISCHARGE"  # Waiting for component capacitors to discharge.
-    POWER_ON = "POWER_ON"  # Restoring power.
+    NOMINAL = "NOMINAL"  # Operating nominally.
+    POWER_OFF = "POWER_OFF"  # Initiating power cutoff or software cleanup.
+    WAIT_DISCHARGE = (
+        "WAIT_DISCHARGE"  # Waiting for capacitors to discharge or software to halt.
+    )
+    POWER_ON = "POWER_ON"  # Restoring power or software initiation.
     WAIT_BOOT = "WAIT_BOOT"  # Waiting for the sensor OS/firmware to boot.
     WAKEUP_RETRY = "WAKEUP_RETRY"  # Attempting ROS 2 lifecycle activation.
     DEFECTIVE = "DEFECTIVE"  # Component permanently failed.
 
 
 class MonitoredComponent:
-    def __init__(self, name, tier, power_topic, startup_time, node_ref):
+    """
+    Represents a single monitored hardware or software component in the FDIR system.
+    Tracks its lifecycle state and handles recovery sequences automatically.
+    """
+
+    def __init__(
+        self, name, tier, reset_mechanism, reset_topic, startup_time, node_ref
+    ):
+        """
+        Initializes the monitored component.
+
+        @param name:            The ROS 2 node name of the component.
+        @param tier:            Criticality level ("FATAL", "PRIMARY", "AUXILIARY").
+        @param reset_mechanism: Mechanism to use for recovery ("hardware_relay" or "lifecycle_service").
+        @param reset_topic:     The ROS topic string for the hardware relay (empty for software).
+        @param startup_time:    Expected duration in seconds for the component to fully boot.
+        @param node_ref:        Reference to the parent FDIRManager node (used for logging and client creation).
+        """
         self.name = name
         self.tier = tier
+        self.reset_mechanism = reset_mechanism
+        self.reset_topic = reset_topic
         self.startup_time = startup_time
         self.node_ref = node_ref
 
-        self.power_pub = self.node_ref.create_publisher(Bool, power_topic, 1)
+        # Only create a hardware publisher if the mechanism is hardware_relay
+        if self.reset_mechanism == "hardware_relay" and self.reset_topic:
+            self.power_pub = self.node_ref.create_publisher(Bool, self.reset_topic, 1)
+        else:
+            self.power_pub = None
 
         self.get_state_client = self.node_ref.create_client(
             GetState, f"{self.name}/get_state"
@@ -80,6 +126,7 @@ class MonitoredComponent:
         )
 
         self.is_alive = False
+        self.is_compromised = False  # Security flag for unknown/malicious states
         self.time_lost = time.time()
         self.rec_state = ModuleRecoveryState.INITIAL_STARTUP
         self.state_timer_start = time.time()
@@ -91,8 +138,12 @@ class MonitoredComponent:
         self.last_known_state = None
 
     def update_state_async(self):
-        # If a state change request is pending,
-        # do not spam the system with GetState requests.
+        """
+        Asynchronously queries the component's ROS 2 lifecycle state.
+        Validates the state ID against known ROS 2 states to prevent injection/corruption.
+
+        @return: None
+        """
         if self.pending_change_future is not None:
             if self.pending_change_future.done():
                 self.pending_change_future = None
@@ -102,12 +153,25 @@ class MonitoredComponent:
             if self.pending_state_future.done():
                 try:
                     res = self.pending_state_future.result()
-                    self.last_known_state = res.current_state.id
+                    state_id = res.current_state.id
+
+                    # SECURITY & INTEGRITY CHECK
+                    if state_id not in VALID_LIFECYCLE_STATES:
+                        self.node_ref.get_logger().fatal(
+                            f"[{self.name}] SECURITY ALERT: Unknown/Corrupted state ID '{state_id}' detected!"
+                        )
+                        self.is_compromised = True
+                        self.last_known_state = None
+                    else:
+                        self.is_compromised = False
+                        self.last_known_state = state_id
+
                 except Exception as e:
                     self.node_ref.get_logger().error(
                         f"[{self.name}] GetState Error: {e}"
                     )
                     self.last_known_state = None
+
                 self.pending_state_future = None
             return
 
@@ -119,60 +183,97 @@ class MonitoredComponent:
         self.pending_state_future = self.get_state_client.call_async(req)
 
     def mark_dead(self, current_time):
+        """
+        Flags the component as disconnected/inactive.
+
+        @param current_time: Current system timestamp.
+        """
         if self.is_alive:
             self.is_alive = False
             self.time_lost = current_time
             self.node_ref.get_logger().warn(f"[{self.name}] LOST CONNECTION!")
 
     def mark_alive(self):
+        """
+        Flags the component as fully operational and resets recovery attempts.
+        """
         if not self.is_alive:
             self.is_alive = True
-            self.rec_state = ModuleRecoveryState.NONE
+            self.rec_state = ModuleRecoveryState.NOMINAL
             self.wakeup_attempts = 0
             self.node_ref.get_logger().info(f"[{self.name}] IS ACTIVE AND READY!")
 
     def process_recovery(self, current_time, power_off_duration, timeout_before_reboot):
+        """
+        Executes the FSM logic to recover the component based on its current recovery state.
+
+        @param current_time:            Current system timestamp.
+        @param power_off_duration:      Global configuration for hardware discharge time.
+        @param timeout_before_reboot:   Global configuration for watchdog timeout.
+        """
         if self.is_alive:
             return
 
         if self.rec_state == ModuleRecoveryState.INITIAL_STARTUP:
-            if current_time - self.last_wakeup_try_time >= 1.0:
+            if current_time - self.last_wakeup_try_time >= WAKEUP_RETRY_INTERVAL_SEC:
                 self.last_wakeup_try_time = current_time
                 self.send_wakeup_request()
 
-                if current_time - self.state_timer_start > self.startup_time + 10.0:
+                # Magic number replaced with defined constant
+                if (
+                    current_time - self.state_timer_start
+                    > self.startup_time + STARTUP_TIMEOUT_BUFFER_SEC
+                ):
                     self.node_ref.get_logger().warn(
-                        f"[{self.name}] Failed to start initially. Moving to HARD REBOOT."
+                        f"[{self.name}] Failed to start initially. Moving to REBOOT SEQUENCE."
                     )
                     self.rec_state = ModuleRecoveryState.POWER_OFF
             return
 
         if (
-            self.rec_state == ModuleRecoveryState.NONE
+            self.rec_state == ModuleRecoveryState.NOMINAL
             and (current_time - self.time_lost) > timeout_before_reboot
         ):
             self.node_ref.get_logger().warn(
-                f"[{self.name}] Timeout reached. INITIATING HARDWARE REBOOT!"
+                f"[{self.name}] Timeout reached. INITIATING {self.reset_mechanism.upper()} REBOOT!"
             )
             self.rec_state = ModuleRecoveryState.POWER_OFF
 
         if self.rec_state == ModuleRecoveryState.POWER_OFF:
-            self.power_pub.publish(Bool(data=False))
+            if self.reset_mechanism == "hardware_relay" and self.power_pub:
+                self.power_pub.publish(Bool(data=False))
+                self.node_ref.get_logger().info(f"[{self.name}] HARDWARE POWER CUT.")
+            else:
+                self.node_ref.get_logger().info(
+                    f"[{self.name}] SOFTWARE LIFECYCLE CLEANUP INITIATED."
+                )
+                self.send_cleanup_request()
+
             self.state_timer_start = current_time
             self.rec_state = ModuleRecoveryState.WAIT_DISCHARGE
-            self.node_ref.get_logger().info(f"[{self.name}] POWER OFF.")
 
         elif self.rec_state == ModuleRecoveryState.WAIT_DISCHARGE:
-            if current_time - self.state_timer_start >= power_off_duration:
+            discharge_time = (
+                power_off_duration
+                if self.reset_mechanism == "hardware_relay"
+                else SOFTWARE_DISCHARGE_TIME
+            )
+            if current_time - self.state_timer_start >= discharge_time:
                 self.rec_state = ModuleRecoveryState.POWER_ON
 
         elif self.rec_state == ModuleRecoveryState.POWER_ON:
-            self.power_pub.publish(Bool(data=True))
+            if self.reset_mechanism == "hardware_relay" and self.power_pub:
+                self.power_pub.publish(Bool(data=True))
+                self.node_ref.get_logger().info(
+                    f"[{self.name}] HARDWARE POWER RESTORED. Waiting {self.startup_time}s for boot..."
+                )
+            else:
+                self.node_ref.get_logger().info(
+                    f"[{self.name}] SOFTWARE INITIALIZATION. Waiting {self.startup_time}s..."
+                )
+
             self.state_timer_start = current_time
             self.rec_state = ModuleRecoveryState.WAIT_BOOT
-            self.node_ref.get_logger().info(
-                f"[{self.name}] POWER ON. Waiting {self.startup_time}s for boot..."
-            )
 
         elif self.rec_state == ModuleRecoveryState.WAIT_BOOT:
             if current_time - self.state_timer_start >= self.startup_time:
@@ -180,23 +281,41 @@ class MonitoredComponent:
                 self.rec_state = ModuleRecoveryState.WAKEUP_RETRY
 
         elif self.rec_state == ModuleRecoveryState.WAKEUP_RETRY:
-            if current_time - self.last_wakeup_try_time >= 2.0:
-                if self.wakeup_attempts >= 5:
+            if current_time - self.last_wakeup_try_time >= WAKEUP_RETRY_INTERVAL_SEC:
+                if self.wakeup_attempts >= MAX_WAKEUP_ATTEMPTS:
                     self.node_ref.get_logger().fatal(
-                        f"{COLOR_BOLD_RED}[{self.name}] 5 WAKEUP ATTEMPTS FAILED. "
-                        f"HARDWARE DEFECT!{COLOR_RESET}"
+                        f"{COLOR_BOLD_RED}[{self.name}] {MAX_WAKEUP_ATTEMPTS} WAKEUP ATTEMPTS FAILED. DEFECT DECLARED!{COLOR_RESET}"
                     )
                     self.rec_state = ModuleRecoveryState.DEFECTIVE
                 else:
                     self.wakeup_attempts += 1
                     self.last_wakeup_try_time = current_time
                     self.node_ref.get_logger().info(
-                        f"[{self.name}] Wakeup attempt {self.wakeup_attempts}/5..."
+                        f"[{self.name}] Wakeup attempt {self.wakeup_attempts}/{MAX_WAKEUP_ATTEMPTS}..."
                     )
                     self.send_wakeup_request()
 
+    def send_cleanup_request(self):
+        """
+        Sends a ROS 2 lifecycle transition request to cleanly deactivate and unconfigure the node.
+        """
+        if not self.change_state_client.service_is_ready():
+            return
+
+        req = ChangeState.Request()
+        if self.last_known_state == State.PRIMARY_STATE_ACTIVE:
+            req.transition.id = Transition.TRANSITION_DEACTIVATE
+        elif self.last_known_state == State.PRIMARY_STATE_INACTIVE:
+            req.transition.id = Transition.TRANSITION_CLEANUP
+        else:
+            return
+
+        self.pending_change_future = self.change_state_client.call_async(req)
+
     def send_wakeup_request(self):
-        # If the service is unavailable, we cannot physically send the request
+        """
+        Sends a ROS 2 lifecycle transition request to configure and activate the node.
+        """
         if not self.change_state_client.service_is_ready():
             return
 
@@ -214,12 +333,18 @@ class MonitoredComponent:
         else:
             return
 
-        # Store the Future object to prevent garbage collection from killing the request
         self.pending_change_future = self.change_state_client.call_async(req)
 
 
 class FDIRManager(Node):
+    """
+    Main manager node. Reads configuration from YAML and orchestrates all components.
+    """
+
     def __init__(self):
+        """
+        Constructor. Loads FDIR policies, initializes publishers, and creates component objects.
+        """
         super().__init__("mona_fdir_manager")
 
         pkg_share = get_package_share_directory("mona_core")
@@ -235,8 +360,8 @@ class FDIRManager(Node):
             )
             raise e
 
-        self.power_off_time = params.get("recovery_power_off_time", 10.0)
-        self.timeout_reboot = params.get("timeout_before_reboot", 60.0)
+        self.power_off_time = params.get("recovery_power_off_time", 3.0)
+        self.timeout_reboot = params.get("timeout_before_reboot", 5.0)
 
         self.health_state_pub = self.create_publisher(String, "system/health_state", 10)
         qos_profile = QoSProfile(
@@ -259,10 +384,14 @@ class FDIRManager(Node):
                 continue
 
             node_name = comp_data["node_name"]
+            reset_mechanism = comp_data.get("reset_mechanism", "lifecycle_service")
+            reset_topic = comp_data.get("reset_topic", "")
+
             self.components[node_name] = MonitoredComponent(
                 name=node_name,
                 tier=comp_data["tier"],
-                power_topic=comp_data["power_topic"],
+                reset_mechanism=reset_mechanism,
+                reset_topic=reset_topic,
                 startup_time=comp_data.get("startup_time", 5.0),
                 node_ref=self,
             )
@@ -274,16 +403,25 @@ class FDIRManager(Node):
         )
 
     def health_eval_tick(self):
+        """
+        Timer callback executed at 5Hz. Evaluates global system health based on the state
+        of all tracked components and triggers emergency contacts if necessary.
+        """
         current_time = time.time()
         global_state = SystemHealthState.SOFTWARE_OK
 
         is_starting = False
         all_active = True
+        security_breach_detected = False
 
         for comp in self.components.values():
             comp.update_state_async()
 
         for name, comp in self.components.items():
+            # Security Check Evaluation
+            if comp.is_compromised:
+                security_breach_detected = True
+
             is_active = comp.last_known_state == State.PRIMARY_STATE_ACTIVE
 
             if comp.rec_state == ModuleRecoveryState.INITIAL_STARTUP:
@@ -314,7 +452,15 @@ class FDIRManager(Node):
             else:
                 comp.mark_alive()
 
-        if is_starting:
+        # If a security/integrity breach was detected, OVERRIDE all logic and kill the system.
+        if security_breach_detected:
+            global_state = SystemHealthState.EMERGENCY
+            all_active = False
+            self.get_logger().fatal(
+                f"{COLOR_BOLD_RED}SECURITY OVERRIDE! UNKNOWN COMPONENT STATES. FORCING EMERGENCY STOP.{COLOR_RESET}"
+            )
+
+        if is_starting and not security_breach_detected:
             global_state = SystemHealthState.SYSTEM_STARTUP
 
         self.health_state_pub.publish(String(data=global_state))
@@ -324,8 +470,7 @@ class FDIRManager(Node):
             self.emergency_contactor_pub.publish(Bool(data=False))
             if int(current_time * 5) % 5 == 0:
                 self.get_logger().fatal(
-                    f"{COLOR_BOLD_RED}EMERGENCY STATE ACTIVE! "
-                    f"BROADCASTING HARDWARE CONTACTOR CUTOFF!{COLOR_RESET}"
+                    f"{COLOR_BOLD_RED}EMERGENCY STATE ACTIVE! BROADCASTING HARDWARE CONTACTOR CUTOFF!{COLOR_RESET}"
                 )
 
         # Highlighted blue output when the system is fully operational
@@ -339,6 +484,9 @@ class FDIRManager(Node):
 
 
 def main(args=None):
+    """
+    Node entrypoint.
+    """
     rclpy.init(args=args)
     manager = FDIRManager()
 

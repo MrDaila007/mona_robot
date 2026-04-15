@@ -20,18 +20,20 @@ Whenever the simulation infrastructure is launched (`./scripts/start_world.bash`
 
 ## 2. Dashboard Interface Overview
 
-The layout is partitioned into distinct functional zones:
+![[docs/images/foxglove_preview.png]]
 
-### Visualization (Central Panel)
+### The layout is partitioned into distinct functional zones:
+
+**Visualization (Central Panel):**
 * **3D Panel:** Renders the active coordinate transform tree (TF), LiDAR point clouds (`/[namespace]/scan`), the global warehouse map (`/map`), and navigation trajectories (`/[namespace]/plan`, `/[namespace]/local_plan`). It is strictly anchored to the `map` frame to visualize absolute global positioning.
 
-### Diagnostics and Telemetry (Right Panel)
+**Diagnostics and Telemetry (Right Panel):**
 * **Raw Messages:** A live data stream of critical system topics.
   * `/[namespace]/system/health_state`: The FDIR health status.
   * `/[namespace]/hardware/contactor_cmd`: The physical state of the motor relays.
 * **Diagnostics:** A structured hierarchical view of the ROS 2 Diagnostics pipeline. Displays hardware errors, operational frequency drops, and safety system statuses.
 
-### Logs and Kinematic Plots (Bottom Panel)
+**Logs and Kinematic Plots (Bottom Panel):**
 * **Log:** The standard output stream (ROSout). Essential for tracking `RCLCPP` warnings, errors, and state transitions.
 * **Plot (Linear X-Y / Angular Z):** Real-time comparative graphs plotting raw input commands (`/[namespace]/cmd_teleop`, `/[namespace]/cmd_nav`) against the final, filtered physical velocity (`/[namespace]/hardware/motor_cmd`). This is the primary tool for tuning PID controllers and the EMA filter alpha.
 
