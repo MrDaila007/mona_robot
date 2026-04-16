@@ -20,7 +20,7 @@ Whenever the simulation infrastructure is launched (`./scripts/start_world.bash`
 
 ## 2. Dashboard Interface Overview
 
-![[docs/images/foxglove_preview.png]]
+![Foxglove preview](/docs/images/foxglove_preview.png)
 
 ### The layout is partitioned into distinct functional zones:
 
