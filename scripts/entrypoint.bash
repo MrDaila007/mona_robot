@@ -22,6 +22,9 @@ set -e
 # Purpose:  Source ROS 2 environments and execute the provided command.
 # ==============================================================================
 
+# Force clean FastDDS shared memory to prevent deadlocks
+rm -rf /dev/shm/fastrtps* /dev/shm/ros2* /dev/shm/env_shared* 2>/dev/null || true
+
 source /opt/ros/humble/setup.bash
 
 if [ -f "$HOME/mona_ws/install/setup.bash" ]; then

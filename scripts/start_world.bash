@@ -28,9 +28,22 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
-trap 'echo -e "\n${YELLOW}[INFO] Shutting down infrastructure...${NC}"; docker rm -f global_clock_bridge global_rviz >/dev/null 2>&1; docker compose down --remove-orphans >/dev/null 2>&1; exit' EXIT INT TERM
+# Ensure graceful cleanup on any exit signal
+cleanup() {
+    echo -e "\n${YELLOW}[INFO] Shutting down infrastructure...${NC}"
+    
+    # Force clean FastDDS shared memory to prevent deadlocks
+    rm -rf /dev/shm/fastrtps* /dev/shm/ros2* /dev/shm/env_shared* 2>/dev/null || true
+    
+    docker rm -f global_clock_bridge global_rviz >/dev/null 2>&1
+    docker compose down --remove-orphans >/dev/null 2>&1
+    exit
+}
+trap cleanup EXIT INT TERM
 
 echo -e "${BLUE}[INFO] Cleaning up the environment...${NC}"
+# Force clean FastDDS shared memory to prevent deadlocks
+rm -rf /dev/shm/fastrtps* /dev/shm/ros2* /dev/shm/env_shared* 2>/dev/null || true
 docker rm -f global_clock_bridge global_rviz >/dev/null 2>&1
 docker compose down --remove-orphans >/dev/null 2>&1
 

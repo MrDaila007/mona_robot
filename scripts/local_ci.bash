@@ -23,6 +23,9 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
+# Force clean FastDDS shared memory to prevent deadlocks
+rm -rf /dev/shm/fastrtps* /dev/shm/ros2* /dev/shm/env_shared* 2>/dev/null || true
+
 echo -e "${BLUE}[INFO] Starting Local Continuous Integration sequence...${NC}"
 
 # ------------------------------------------------------------------------------
@@ -37,7 +40,7 @@ fi
 # ------------------------------------------------------------------------------
 # 1. Auto-format Code and Static Analysis (Fix style before testing)
 # ------------------------------------------------------------------------------
-echo -e "${YELLOW}[1/4] Auto-formatting code to match Enterprise standards...${NC}"
+echo -e "${YELLOW}[1/4] Auto-formatting code to match standards...${NC}"
 
 # C++ Formatting (uncrustify)
 if command -v ament_uncrustify &> /dev/null; then
