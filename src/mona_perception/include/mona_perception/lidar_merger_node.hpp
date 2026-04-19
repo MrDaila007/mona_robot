@@ -72,6 +72,7 @@ private:
     // State variables
     bool has_power_ = true;
     std::string target_frame_;
+    double transform_timeout_;
     rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr power_sub_;
 
     // TF and projections

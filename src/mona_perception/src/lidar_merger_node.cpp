@@ -35,8 +35,23 @@ LidarMergerNode::~LidarMergerNode() {}
 CallbackReturn LidarMergerNode::on_configure(const rclcpp_lifecycle::State &) {
     RCLCPP_INFO(get_logger(), "Configuring Lidar Merger Component...");
 
-    // Declare and read the target frame parameter for Swarm compatibility
-    target_frame_ = this->declare_parameter<std::string>("target_frame", "base_link");
+    // Safely declare parameters if they don't exist yet
+    if (!this->has_parameter("target_frame")) {
+        this->declare_parameter("target_frame", "base_link");
+    }
+    if (!this->has_parameter("transform_timeout")) {
+        this->declare_parameter("transform_timeout", 0.1);
+    }
+
+    // Read the parameters into class variables
+    target_frame_      = this->get_parameter("target_frame").as_string();
+    transform_timeout_ = this->get_parameter("transform_timeout").as_double();
+
+    // Fallback protection just in case
+    if (target_frame_.empty()) {
+        target_frame_ = "base_link";
+        RCLCPP_WARN(this->get_logger(), "target_frame was empty! Defaulting to 'base_link'");
+    }
 
     // Initialize TF
     tf_buffer_   = std::make_shared<tf2_ros::Buffer>(this->get_clock());
@@ -72,6 +87,9 @@ CallbackReturn LidarMergerNode::on_configure(const rclcpp_lifecycle::State &) {
             std::placeholders::_1, std::placeholders::_2,
             std::placeholders::_3, std::placeholders::_4));
 
+    RCLCPP_INFO(
+        this->get_logger(), "Lidar Merger CONFIGURED. Target frame: %s",
+        target_frame_.c_str());
     return CallbackReturn::SUCCESS;
 }
 

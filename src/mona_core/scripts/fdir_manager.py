@@ -19,11 +19,13 @@
 # ==============================================================================
 
 import os
+import sys
 import yaml
 import time
 import rclpy
 from rclpy.node import Node
 from std_msgs.msg import Bool, String
+from mona_msgs.msg import FdirState
 from lifecycle_msgs.srv import ChangeState, GetState
 from lifecycle_msgs.msg import Transition, State
 from ament_index_python.packages import get_package_share_directory
@@ -53,20 +55,23 @@ SOFTWARE_DISCHARGE_TIME = (
 VALID_LIFECYCLE_STATES = {0, 1, 2, 3, 4, 10, 11, 12, 13, 14, 15}
 
 
-class SystemHealthState:
+class FdirStateState:
     """
-    Enumerates the global system health states.
-    Dictates whether the robot can move and how hardware contactors react.
+    Enumerates the global system health states mapped to mona_msgs/FdirState.
     """
 
-    SYSTEM_STARTUP = "SYSTEM_STARTUP"  # Initialization in progress. Contactors OFF.
-    SOFTWARE_OK = "SOFTWARE_OK"  # Normal operation.
-    DEGRADED = "DEGRADED"  # Operating at reduced velocities.
-    RECONFIGURED = "RECONFIGURED"  # Reconfigured mode (e.g., driving in reverse).
+    SYSTEM_STARTUP = (
+        FdirState.STATE_SYSTEM_STARTUP
+    )  # Initialization in progress. Contactors OFF.
+    SOFTWARE_OK = FdirState.STATE_SOFTWARE_OK  # Normal operation.
+    DEGRADED = FdirState.STATE_DEGRADED  # Operating at reduced velocities.
+    RECONFIGURED = (
+        FdirState.STATE_RECONFIGURED
+    )  # Reconfigured mode (e.g., driving in reverse).
     PROTECTIVE_STOP = (
-        "PROTECTIVE_STOP"  # Stopped, waiting for a PRIMARY node to reboot.
-    )
-    EMERGENCY = "EMERGENCY"  # Fatal error, hardware contactors opened.
+        FdirState.STATE_PROTECTIVE_STOP
+    )  # Stopped, waiting for a PRIMARY node to reboot.
+    EMERGENCY = FdirState.STATE_EMERGENCY  # Fatal error, hardware contactors opened.
 
 
 class ModuleRecoveryState:
@@ -363,7 +368,9 @@ class FDIRManager(Node):
         self.power_off_time = params.get("recovery_power_off_time", 3.0)
         self.timeout_reboot = params.get("timeout_before_reboot", 5.0)
 
-        self.health_state_pub = self.create_publisher(String, "system/health_state", 10)
+        self.health_state_pub = self.create_publisher(
+            FdirState, "system/health_state", 10
+        )
         qos_profile = QoSProfile(
             depth=1,
             reliability=ReliabilityPolicy.RELIABLE,
@@ -408,7 +415,7 @@ class FDIRManager(Node):
         of all tracked components and triggers emergency contacts if necessary.
         """
         current_time = time.time()
-        global_state = SystemHealthState.SOFTWARE_OK
+        global_state = FdirStateState.SOFTWARE_OK
 
         is_starting = False
         all_active = True
@@ -435,38 +442,45 @@ class FDIRManager(Node):
                 )
 
                 if comp.tier == "FATAL":
-                    global_state = SystemHealthState.EMERGENCY
+                    global_state = FdirStateState.EMERGENCY
                 elif (
-                    comp.tier == "PRIMARY"
-                    and global_state != SystemHealthState.EMERGENCY
+                    comp.tier == "PRIMARY" and global_state != FdirStateState.EMERGENCY
                 ):
                     if comp.rec_state == ModuleRecoveryState.DEFECTIVE:
-                        global_state = SystemHealthState.RECONFIGURED
+                        global_state = FdirStateState.RECONFIGURED
                     else:
-                        global_state = SystemHealthState.PROTECTIVE_STOP
+                        global_state = FdirStateState.PROTECTIVE_STOP
                 elif comp.tier == "AUXILIARY" and global_state not in [
-                    SystemHealthState.EMERGENCY,
-                    SystemHealthState.PROTECTIVE_STOP,
+                    FdirStateState.EMERGENCY,
+                    FdirStateState.PROTECTIVE_STOP,
                 ]:
-                    global_state = SystemHealthState.DEGRADED
+                    global_state = FdirStateState.DEGRADED
             else:
                 comp.mark_alive()
 
         # If a security/integrity breach was detected, OVERRIDE all logic and kill the system.
         if security_breach_detected:
-            global_state = SystemHealthState.EMERGENCY
+            global_state = FdirStateState.EMERGENCY
             all_active = False
             self.get_logger().fatal(
                 f"{COLOR_BOLD_RED}SECURITY OVERRIDE! UNKNOWN COMPONENT STATES. FORCING EMERGENCY STOP.{COLOR_RESET}"
             )
 
         if is_starting and not security_breach_detected:
-            global_state = SystemHealthState.SYSTEM_STARTUP
+            global_state = FdirStateState.SYSTEM_STARTUP
 
-        self.health_state_pub.publish(String(data=global_state))
+        msg = FdirState()
+        msg.header.stamp = self.get_clock().now().to_msg()
+        msg.current_state = global_state
+        if not all_active:
+            msg.diagnostic_message = "One or more components are undergoing recovery."
+        else:
+            msg.diagnostic_message = "Nominal operation."
+
+        self.health_state_pub.publish(msg)
 
         # HARDWARE REDUNDANCY (Bold red FATAL logging)
-        if global_state == SystemHealthState.EMERGENCY:
+        if global_state == FdirStateState.EMERGENCY:
             self.emergency_contactor_pub.publish(Bool(data=False))
             if int(current_time * 5) % 5 == 0:
                 self.get_logger().fatal(

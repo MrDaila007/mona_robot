@@ -21,30 +21,23 @@ namespace mona_control
 {
 TwistMuxNode::TwistMuxNode(const rclcpp::NodeOptions &options)
     : rclcpp_lifecycle::LifecycleNode("twist_mux_node", options), last_teleop_time_(this->now()),
-      last_nav_time_(this->now()), current_state_(MuxState::UCFG), manual_timeout_(2.0),
+      last_nav_time_(this->now()), current_state_(TwistMuxState::UCFG), manual_timeout_(2.0),
       cmd_timeout_(0.5), ema_alpha_(0.1) {
     this->declare_parameter("command_timeout", 0.5);
     this->declare_parameter("manual_takeover_time", 2.0);
     this->declare_parameter("ema_alpha", 0.1);
+    this->declare_parameter("max_speed_normal", 1.0);
+    this->declare_parameter("max_speed_degraded", 0.3);
 }
 
 TwistMuxNode::~TwistMuxNode() {}
 
-std::string TwistMuxNode::mux_state_to_string(MuxState state) {
-    switch (state) {
-        case MuxState::UCFG:       return "UNCONFIGURED";
-        case MuxState::IDLE:       return "IDLE";
-        case MuxState::MANUAL:     return "MANUAL";
-        case MuxState::AUTONOMOUS: return "AUTONOMOUS";
-        case MuxState::BLOCKED:    return "BLOCKED_BY_SAFETY";
-        default:                   return "UNKNOWN";
-    }
-}
-
 CallbackReturn TwistMuxNode::on_configure(const rclcpp_lifecycle::State &) {
-    cmd_timeout_    = this->get_parameter("command_timeout").as_double();
-    manual_timeout_ = this->get_parameter("manual_takeover_time").as_double();
-    ema_alpha_      = this->get_parameter("ema_alpha").as_double();
+    cmd_timeout_        = this->get_parameter("command_timeout").as_double();
+    manual_timeout_     = this->get_parameter("manual_takeover_time").as_double();
+    ema_alpha_          = this->get_parameter("ema_alpha").as_double();
+    max_speed_normal_   = this->get_parameter("max_speed_normal").as_double();
+    max_speed_degraded_ = this->get_parameter("max_speed_degraded").as_double();
 
     auto callback_group = this->create_callback_group(rclcpp::CallbackGroupType::Reentrant);
     rclcpp::SubscriptionOptions sub_opts;
@@ -52,7 +45,7 @@ CallbackReturn TwistMuxNode::on_configure(const rclcpp_lifecycle::State &) {
 
     // --- PUBLISHERS --- //
     smooth_pub_ = this->create_publisher<geometry_msgs::msg::Twist>("cmd_vel_smoothed", 10);
-    status_pub_ = this->create_publisher<std_msgs::msg::String>("mux_status", 10);
+    state_pub_  = this->create_publisher<mona_msgs::msg::TwistMuxState>("mux_state", 10);
 
     // --- SUBSCRIPTIONS --- //
     // Teleoperation overrides (High priority)
@@ -67,10 +60,16 @@ CallbackReturn TwistMuxNode::on_configure(const rclcpp_lifecycle::State &) {
             &TwistMuxNode::nav_callback, this,
             std::placeholders::_1), sub_opts);
 
-    // Subscribe to global robot status to monitor FDIR and E-STOP conditions
-    robot_status_sub_ = this->create_subscription<std_msgs::msg::String>(
-        "robot_status", 10, std::bind(
-            &TwistMuxNode::robot_status_callback, this,
+    // Subscribe to global FDIR status to monitor system health
+    fdir_state_sub_ = this->create_subscription<mona_msgs::msg::FdirState>(
+        "system/health_state", 10, std::bind(
+            &TwistMuxNode::fdir_state_callback, this,
+            std::placeholders::_1), sub_opts);
+
+    // Subscribe to local safety node to monitor hardware E-STOP conditions
+    safety_state_sub_ = this->create_subscription<mona_msgs::msg::SafetyState>(
+        "system/safety_state", 10, std::bind(
+            &TwistMuxNode::safety_state_callback, this,
             std::placeholders::_1), sub_opts);
 
     watchdog_timer_ = this->create_wall_timer(
@@ -82,11 +81,11 @@ CallbackReturn TwistMuxNode::on_configure(const rclcpp_lifecycle::State &) {
 
 CallbackReturn TwistMuxNode::on_activate(const rclcpp_lifecycle::State &) {
     smooth_pub_->on_activate();
-    status_pub_->on_activate();
+    state_pub_->on_activate();
 
     last_teleop_time_ = this->now();
     last_nav_time_    = this->now();
-    current_state_    = MuxState::IDLE;
+    current_state_    = TwistMuxState::IDLE;
 
     RCLCPP_INFO(get_logger(), "TwistMux ACTIVE.");
     return CallbackReturn::SUCCESS;
@@ -94,19 +93,26 @@ CallbackReturn TwistMuxNode::on_activate(const rclcpp_lifecycle::State &) {
 
 CallbackReturn TwistMuxNode::on_deactivate(const rclcpp_lifecycle::State &) {
     smooth_pub_->on_deactivate();
-    status_pub_->on_deactivate();
+    state_pub_->on_deactivate();
 
     return CallbackReturn::SUCCESS;
 }
 
 CallbackReturn TwistMuxNode::on_cleanup(const rclcpp_lifecycle::State &) {
-    nav_sub_.reset();
-    teleop_sub_.reset();
-    robot_status_sub_.reset();
-    smooth_pub_.reset();
-    status_pub_.reset();
-    watchdog_timer_.reset();
-    nav_client_.reset();
+    // Cancel timer first to avoid Race Conditions and Segfaults
+    if (watchdog_timer_ != nullptr) {
+        watchdog_timer_->cancel();
+        watchdog_timer_.reset();
+    }
+
+    // Safely reset all other pointers
+    if (nav_sub_ != nullptr) {nav_sub_.reset();}
+    if (teleop_sub_ != nullptr) {teleop_sub_.reset();}
+    if (fdir_state_sub_ != nullptr) {fdir_state_sub_.reset();}
+    if (safety_state_sub_ != nullptr) {safety_state_sub_.reset();}
+    if (state_pub_ != nullptr) {state_pub_.reset();}
+    if (smooth_pub_ != nullptr) {smooth_pub_.reset();}
+    if (nav_client_ != nullptr) {nav_client_.reset();}
 
     return CallbackReturn::SUCCESS;
 }
@@ -115,26 +121,49 @@ CallbackReturn TwistMuxNode::on_shutdown(const rclcpp_lifecycle::State &) {
     return CallbackReturn::SUCCESS;
 }
 
-void TwistMuxNode::publish_status(std::string status_text) {
-    std_msgs::msg::String msg;
-    msg.data = status_text;
+void TwistMuxNode::publish_state(TwistMuxState state) {
+    mona_msgs::msg::TwistMuxState msg;
 
-    if (status_pub_->is_activated()) {
-        status_pub_->publish(msg);
+    switch (state) {
+        case TwistMuxState::IDLE:       msg.current_state = mona_msgs::msg::TwistMuxState::IDLE;
+            break;
+        case TwistMuxState::MANUAL:     msg.current_state = mona_msgs::msg::TwistMuxState::MANUAL;
+            break;
+        case TwistMuxState::AUTONOMOUS: msg.current_state =
+                mona_msgs::msg::TwistMuxState::AUTONOMOUS; break;
+        case TwistMuxState::BLOCKED:    msg.current_state =
+                mona_msgs::msg::TwistMuxState::BLOCKED_BY_SAFETY; break;
+        default:                        msg.current_state = mona_msgs::msg::TwistMuxState::IDLE;
+            break;
+    }
+
+    if (state_pub_->is_activated()) {
+        state_pub_->publish(msg);
     }
 }
 
-// Callback to monitor active safety states and hardware cutoffs
-void TwistMuxNode::robot_status_callback(const std_msgs::msg::String::SharedPtr msg) {
-    if (msg->data == "EMERGENCY" || msg->data == "PROTECTIVE_STOP") {
-        is_safety_blocked_ = true;
-    } else {
-        is_safety_blocked_ = false;
-    }
+// Callback to monitor active FDIR health states
+void TwistMuxNode::fdir_state_callback(const mona_msgs::msg::FdirState::SharedPtr msg) {
+    // Track DEGRADED state to trigger velocity clamping
+    is_degraded_ = (msg->current_state == mona_msgs::msg::FdirState::STATE_DEGRADED);
+
+    is_fdir_blocked_ = (
+        msg->current_state == mona_msgs::msg::FdirState::STATE_EMERGENCY ||
+        msg->current_state == mona_msgs::msg::FdirState::STATE_PROTECTIVE_STOP ||
+        msg->current_state == mona_msgs::msg::FdirState::STATE_RECONFIGURED);
+
+    is_safety_blocked_ = is_fdir_blocked_ || is_estop_blocked_;
+}
+
+// Callback to monitor explicit hardware E-STOP triggers from the safety node
+void TwistMuxNode::safety_state_callback(const mona_msgs::msg::SafetyState::SharedPtr msg) {
+    is_estop_blocked_  = (msg->current_state == mona_msgs::msg::SafetyState::EMERGENCY);
+    is_safety_blocked_ = is_fdir_blocked_ || is_estop_blocked_;
 }
 
 void TwistMuxNode::teleop_callback(const geometry_msgs::msg::Twist::SharedPtr msg) {
     std::lock_guard<std::mutex> lock(mux_mutex_);
+    if (is_safety_blocked_) {return;}
 
     // Filter zero-velocity spam emitted by idle gamepads
     bool is_zero_cmd =
@@ -147,25 +176,27 @@ void TwistMuxNode::teleop_callback(const geometry_msgs::msg::Twist::SharedPtr ms
         last_teleop_time_ = this->now();
 
         // Manual takeover: Cancel the active Nav2 goal to prevent immediate resumption
-        if (current_state_ == MuxState::AUTONOMOUS) {
+        if (current_state_ == TwistMuxState::AUTONOMOUS) {
             if (nav_client_ && nav_client_->action_server_is_ready()) {
                 nav_client_->async_cancel_all_goals();
                 RCLCPP_WARN(get_logger(), "MANUAL TAKEOVER: Canceling active Nav2 goal!");
             }
         }
-        current_state_   = MuxState::MANUAL;
+        current_state_   = TwistMuxState::MANUAL;
         last_teleop_msg_ = *msg;
     }
 }
 
 void TwistMuxNode::nav_callback(const geometry_msgs::msg::Twist::SharedPtr msg) {
     std::lock_guard<std::mutex> lock(mux_mutex_);
+    if (is_safety_blocked_) {return;}
+
     last_nav_time_ = this->now();
 
     // Block navigation commands if the teleop interface was recently active
     if ((this->now() - last_teleop_time_).seconds() < manual_timeout_) {return;}
 
-    current_state_ = MuxState::AUTONOMOUS;
+    current_state_ = TwistMuxState::AUTONOMOUS;
     last_nav_msg_  = *msg;
 }
 
@@ -179,20 +210,20 @@ void TwistMuxNode::control_loop() {
 
     // Enforce the BLOCKED safety state regardless of incoming inputs
     if (is_safety_blocked_) {
-        current_state_ = MuxState::BLOCKED;
+        current_state_ = TwistMuxState::BLOCKED;
         target_vel_    = geometry_msgs::msg::Twist();   // Force zero velocity
     } else if ((time_since_teleop > cmd_timeout_) && (time_since_nav > cmd_timeout_)) {
-        current_state_ = MuxState::IDLE;
+        current_state_ = TwistMuxState::IDLE;
         target_vel_    = geometry_msgs::msg::Twist();
     } else {
-        if (current_state_ == MuxState::MANUAL) {
+        if (current_state_ == TwistMuxState::MANUAL) {
             target_vel_ = last_teleop_msg_;
-        } else if (current_state_ == MuxState::AUTONOMOUS) {
+        } else if (current_state_ == TwistMuxState::AUTONOMOUS) {
             target_vel_ = last_nav_msg_;
         }
     }
 
-    publish_status(mux_state_to_string(current_state_));
+    publish_state(current_state_);
 
     // Exponential Moving Average (EMA) Filter for smooth acceleration/deceleration
     current_vel_.linear.x = ema_alpha_ * target_vel_.linear.x + (1.0 - ema_alpha_) *
@@ -201,6 +232,17 @@ void TwistMuxNode::control_loop() {
         current_vel_.linear.y;
     current_vel_.angular.z = ema_alpha_ * target_vel_.angular.z + (1.0 - ema_alpha_) *
         current_vel_.angular.z;
+
+    // Dynamic clamping based on FDIR state (Hard Real-Time limits enforcement)
+    double current_max_speed = is_degraded_ ? max_speed_degraded_ : max_speed_normal_;
+
+    current_vel_.linear.x =
+        std::clamp(current_vel_.linear.x, -current_max_speed, current_max_speed);
+    current_vel_.linear.y =
+        std::clamp(current_vel_.linear.y, -current_max_speed, current_max_speed);
+    current_vel_.angular.z = std::clamp(
+        current_vel_.angular.z, -current_max_speed,
+        current_max_speed);
 
     smooth_pub_->publish(current_vel_);
 }

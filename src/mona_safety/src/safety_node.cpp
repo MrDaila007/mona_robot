@@ -38,9 +38,17 @@ SafetyNode::~SafetyNode() {
 }
 
 std::string SafetyNode::safety_state_to_string(SafetyState state) {
+    std::string mux_str = "UNKNOWN";
+    switch (last_mux_state_) {
+        case mona_msgs::msg::TwistMuxState::IDLE:              mux_str = "IDLE"; break;
+        case mona_msgs::msg::TwistMuxState::MANUAL:            mux_str = "MANUAL"; break;
+        case mona_msgs::msg::TwistMuxState::AUTONOMOUS:        mux_str = "AUTONOMOUS"; break;
+        case mona_msgs::msg::TwistMuxState::BLOCKED_BY_SAFETY: mux_str = "BLOCKED"; break;
+    }
+
     switch (state) {
-        case SafetyState::NORMAL:          return "NORMAL";
-        case SafetyState::DEGRADED:        return "DEGRADED: " + last_mux_status_;
+        case SafetyState::NORMAL:          return "NORMAL: " + mux_str;
+        case SafetyState::DEGRADED:        return "DEGRADED: " + mux_str;
         case SafetyState::PROTECTIVE_STOP: return "PROTECTIVE_STOP";
         case SafetyState::EMERGENCY:       return "EMERGENCY";
         default:                           return "UNKNOWN";
@@ -59,13 +67,13 @@ CallbackReturn SafetyNode::on_configure(const rclcpp_lifecycle::State &) {
         "cmd_vel_smoothed", 10,
         std::bind(&SafetyNode::smoothed_vel_callback, this, std::placeholders::_1), sub_opts);
 
-    health_sub_ = create_subscription<std_msgs::msg::String>(
+    health_sub_ = create_subscription<mona_msgs::msg::FdirState>(
         "system/health_state", 10,
         std::bind(&SafetyNode::health_state_callback, this, std::placeholders::_1), sub_opts);
 
-    mux_status_sub_ = create_subscription<std_msgs::msg::String>(
-        "mux_status", 10,
-        std::bind(&SafetyNode::mux_status_callback, this, std::placeholders::_1), sub_opts);
+    mux_state_sub_ = create_subscription<mona_msgs::msg::TwistMuxState>(
+        "mux_state", 10,
+        std::bind(&SafetyNode::mux_state_callback, this, std::placeholders::_1), sub_opts);
 
     // Subscribe to odometry to monitor actual physical stops
     odom_sub_ = create_subscription<nav_msgs::msg::Odometry>(
@@ -85,7 +93,8 @@ CallbackReturn SafetyNode::on_configure(const rclcpp_lifecycle::State &) {
     );
 
     motor_pub_        = create_publisher<geometry_msgs::msg::Twist>("hardware/motor_cmd", 10);
-    robot_status_pub_ = create_publisher<std_msgs::msg::String>("robot_status", 10);
+    safety_state_pub_ = create_publisher<mona_msgs::msg::SafetyState>("system/safety_state", 10);
+    contactor_pub_    = create_publisher<std_msgs::msg::Bool>("hardware/contactors", 10);
 
     RCLCPP_INFO(get_logger(), "Safety Node CONFIGURED.");
     return CallbackReturn::SUCCESS;
@@ -94,7 +103,8 @@ CallbackReturn SafetyNode::on_configure(const rclcpp_lifecycle::State &) {
 CallbackReturn SafetyNode::on_activate(const rclcpp_lifecycle::State &) {
     is_processing_allowed_ = true;
     motor_pub_->on_activate();
-    robot_status_pub_->on_activate();
+    safety_state_pub_->on_activate();
+    contactor_pub_->on_activate();
     set_hardware_contactors(false);
 
     RCLCPP_INFO(get_logger(), "Safety Core ACTIVE. Contactors OFF. Waiting for FDIR clearance...");
@@ -104,14 +114,10 @@ CallbackReturn SafetyNode::on_activate(const rclcpp_lifecycle::State &) {
 CallbackReturn SafetyNode::on_deactivate(const rclcpp_lifecycle::State &) {
     is_processing_allowed_ = false;
     set_hardware_contactors(false);
-    smooth_sub_.reset();
-    health_sub_.reset();
-    mux_status_sub_.reset();
-    odom_sub_.reset();
-    srv_estop_.reset();
-    srv_estop_reset_.reset();
-    motor_pub_.reset();
-    robot_status_pub_.reset();
+
+    if (motor_pub_) {motor_pub_->on_deactivate();}
+    if (safety_state_pub_) {safety_state_pub_->on_deactivate();}
+    if (contactor_pub_) {contactor_pub_->on_deactivate();}
 
     RCLCPP_WARN(get_logger(), "Safety Node DEACTIVATED. System may be unstable!");
     return CallbackReturn::SUCCESS;
@@ -120,14 +126,16 @@ CallbackReturn SafetyNode::on_deactivate(const rclcpp_lifecycle::State &) {
 CallbackReturn SafetyNode::on_cleanup(const rclcpp_lifecycle::State &) {
     is_processing_allowed_ = false;
     set_hardware_contactors(false);
-    smooth_sub_.reset();
-    health_sub_.reset();
-    mux_status_sub_.reset();
-    odom_sub_.reset();
-    srv_estop_.reset();
-    srv_estop_reset_.reset();
-    motor_pub_.reset();
-    robot_status_pub_.reset();
+
+    if (smooth_sub_) {smooth_sub_.reset();}
+    if (health_sub_) {health_sub_.reset();}
+    if (mux_state_sub_) {mux_state_sub_.reset();}
+    if (odom_sub_) {odom_sub_.reset();}
+    if (srv_estop_) {srv_estop_.reset();}
+    if (srv_estop_reset_) {srv_estop_reset_.reset();}
+    if (motor_pub_) {motor_pub_.reset();}
+    if (safety_state_pub_) {safety_state_pub_.reset();}
+    if (contactor_pub_) {contactor_pub_.reset();}
 
     return CallbackReturn::SUCCESS;
 }
@@ -150,6 +158,12 @@ void SafetyNode::set_hardware_contactors(bool enable) {
     if (hardware_contactors_closed_ == enable) {return;}
     hardware_contactors_closed_ = enable;
 
+    std_msgs::msg::Bool contactor_msg;
+    contactor_msg.data = enable;
+    if (contactor_pub_ && contactor_pub_->is_activated()) {
+        contactor_pub_->publish(contactor_msg);
+    }
+
     if (enable) {
         RCLCPP_INFO(
             get_logger(),
@@ -168,25 +182,29 @@ void SafetyNode::publish_stop() {
     if (motor_pub_->is_activated()) {motor_pub_->publish(stop_msg);}
 }
 
-void SafetyNode::publish_global_status() {
+void SafetyNode::publish_global_state() {
     // Check if the lifecycle publisher is activated
-    if (!robot_status_pub_->is_activated()) {return;}
+    if (!safety_state_pub_->is_activated()) {return;}
 
-    std_msgs::msg::String msg;
+    mona_msgs::msg::SafetyState msg;
 
     // Strict status priority hierarchy utilizing the state converter
     if (e_stop_active_ || current_state_ == SafetyState::EMERGENCY) {
-        msg.data = safety_state_to_string(SafetyState::EMERGENCY);
+        msg.current_state = mona_msgs::msg::SafetyState::EMERGENCY;
+        msg.message       = safety_state_to_string(SafetyState::EMERGENCY);
     } else if (current_state_ == SafetyState::PROTECTIVE_STOP) {
-        msg.data = safety_state_to_string(SafetyState::PROTECTIVE_STOP);
+        msg.current_state = mona_msgs::msg::SafetyState::PROTECTIVE_STOP;
+        msg.message       = safety_state_to_string(SafetyState::PROTECTIVE_STOP);
     } else if (current_state_ == SafetyState::DEGRADED) {
-        msg.data = safety_state_to_string(SafetyState::DEGRADED);
+        msg.current_state = mona_msgs::msg::SafetyState::DEGRADED;
+        msg.message       = safety_state_to_string(SafetyState::DEGRADED);
     } else {
-        // If hardware is operational, broadcast the active control state (TwistMux)
-        msg.data = last_mux_status_.empty() ? "UNKNOWN" : last_mux_status_;
+        // If hardware is operational, broadcast the NORMAL state with active control info
+        msg.current_state = mona_msgs::msg::SafetyState::NORMAL;
+        msg.message       = safety_state_to_string(SafetyState::NORMAL);
     }
 
-    robot_status_pub_->publish(msg);
+    safety_state_pub_->publish(msg);
 }
 
 void SafetyNode::smoothed_vel_callback(const geometry_msgs::msg::Twist::SharedPtr msg) {
@@ -203,69 +221,58 @@ void SafetyNode::smoothed_vel_callback(const geometry_msgs::msg::Twist::SharedPt
     double current_limit =
         (current_state_ == SafetyState::DEGRADED) ? max_speed_degraded_ : max_speed_normal_;
 
-    clipped_msg.linear.x = std::clamp(clipped_msg.linear.x, -current_limit, current_limit);
-    clipped_msg.linear.y = std::clamp(clipped_msg.linear.y, -current_limit, current_limit);
+    clipped_msg.linear.x  = std::clamp(clipped_msg.linear.x, -current_limit, current_limit);
+    clipped_msg.linear.y  = std::clamp(clipped_msg.linear.y, -current_limit, current_limit);
+    clipped_msg.angular.z = std::clamp(clipped_msg.angular.z, -current_limit, current_limit);
 
     motor_pub_->publish(clipped_msg);
 }
 
-void SafetyNode::health_state_callback(const std_msgs::msg::String::SharedPtr msg) {
+void SafetyNode::health_state_callback(const mona_msgs::msg::FdirState::SharedPtr msg) {
     if (!is_processing_allowed_) {return;}  // ZOMBIE NODE PROTECTION
 
-    std::string fdir_state    = msg->data;
-    bool        state_changed = (fdir_state != last_fdir_state_);
-    last_fdir_state_          = fdir_state;
+    uint8_t fdir_state    = msg->current_state;
+    bool    state_changed = (fdir_state != last_fdir_state_);
+    last_fdir_state_      = fdir_state;
 
-    // Static map for string-to-enum conversion
-    static const std::unordered_map<std::string, FdirCommand> command_map = {
-        {"SYSTEM_STARTUP", FdirCommand::SYSTEM_STARTUP},
-        {"EMERGENCY", FdirCommand::EMERGENCY},
-        {"PROTECTIVE_STOP", FdirCommand::PROTECTIVE_STOP},
-        {"DEGRADED", FdirCommand::DEGRADED},
-        {"SOFTWARE_OK", FdirCommand::SOFTWARE_OK}
-    };
-
-    // Parse the incoming command
-    auto        it  = command_map.find(fdir_state);
-    FdirCommand cmd = (it != command_map.end()) ? it->second : FdirCommand::UNKNOWN;
-
-    // Execute state transition logic based on the parsed command
-    switch (cmd) {
-        case FdirCommand::SYSTEM_STARTUP:
+    // Execute state transition logic based on the explicit byte command
+    switch (fdir_state) {
+        case mona_msgs::msg::FdirState::STATE_SYSTEM_STARTUP:
             // 1. Initialization (Contactors OFF)
             current_state_ = SafetyState::PROTECTIVE_STOP;
             publish_stop();
             set_hardware_contactors(false);
             if (state_changed) {
                 RCLCPP_INFO(
-                    get_logger(),
+                    this->get_logger(),
                     COLOR_BLUE "System is initializing... Contactors OFF." COLOR_RESET);
             }
             break;
 
-        case FdirCommand::EMERGENCY:
+        case mona_msgs::msg::FdirState::STATE_EMERGENCY:
             // 2. Emergency (Latch E-Stop, contactors OFF)
             e_stop_active_ = true;
             current_state_ = SafetyState::EMERGENCY;
             publish_stop();
             set_hardware_contactors(false);
             if (state_changed) {
-                RCLCPP_FATAL(get_logger(), "FDIR Commanded EMERGENCY! Contactors OFF.");
+                RCLCPP_FATAL(this->get_logger(), "FDIR Commanded EMERGENCY! Contactors OFF.");
             }
             break;
 
-        case FdirCommand::PROTECTIVE_STOP:
+        case mona_msgs::msg::FdirState::STATE_PROTECTIVE_STOP:
             // 3. Protective Stop (Power is ON, but motion is halted)
             current_state_ = SafetyState::PROTECTIVE_STOP;
             publish_stop();
             if (!e_stop_active_) {set_hardware_contactors(true);}
             if (state_changed) {
                 RCLCPP_WARN(
-                    get_logger(), "FDIR Commanded PROTECTIVE STOP. Waiting for primary sensors...");
+                    this->get_logger(),
+                    "FDIR Commanded PROTECTIVE STOP. Waiting for primary sensors...");
             }
             break;
 
-        case FdirCommand::DEGRADED:
+        case mona_msgs::msg::FdirState::STATE_DEGRADED:
             // 4. Degraded Mode (Operational, but with velocity restrictions)
             current_state_ = SafetyState::DEGRADED;
             if (!e_stop_active_) {
@@ -273,7 +280,7 @@ void SafetyNode::health_state_callback(const std_msgs::msg::String::SharedPtr ms
             }
             break;
 
-        case FdirCommand::SOFTWARE_OK:
+        case mona_msgs::msg::FdirState::STATE_SOFTWARE_OK:
             // 5. Normal Operation
             if (!e_stop_active_) {
                 current_state_ = SafetyState::NORMAL;
@@ -281,29 +288,43 @@ void SafetyNode::health_state_callback(const std_msgs::msg::String::SharedPtr ms
             } else {
                 if (state_changed) {
                     RCLCPP_WARN(
-                        get_logger(),
+                        this->get_logger(),
                         "FDIR Commanded SOFTWARE_OK, but E-STOP is latched! Ignoring.");
                 }
             }
             break;
 
-        case FdirCommand::UNKNOWN:
+        case mona_msgs::msg::FdirState::STATE_RECONFIGURED:
+            // 6. Reconfigured Mode
+            // Primary component failed. Manual control allowed, autonomous blocked
+            current_state_ = SafetyState::DEGRADED;
+            publish_stop();  // Halt any current motion immediately on transition
+            if (!e_stop_active_) {
+                set_hardware_contactors(true);
+            }
+            if (state_changed) {
+                RCLCPP_WARN(
+                    this->get_logger(),
+                    "FDIR Commanded RECONFIGURED. PRIMARY COMPONENT LOST. Manual override only!");
+            }
+            break;
+
         default:
-            // 6. UNKNOWN STATE (Global fallback - power off everything)
+            // 7. UNKNOWN STATE (Global fallback - power off everything)
             set_hardware_contactors(false);
             if (state_changed) {
                 RCLCPP_ERROR(
-                    get_logger(), "UNKNOWN FDIR STATE: '%s'. Safety shutdown triggered!",
-                    fdir_state.c_str());
+                    this->get_logger(), "UNKNOWN FDIR STATE ID: '%d'. Safety shutdown triggered!",
+                    fdir_state);
             }
             break;
     }
 }
 
-void SafetyNode::mux_status_callback(const std_msgs::msg::String::SharedPtr msg) {
+void SafetyNode::mux_state_callback(const mona_msgs::msg::TwistMuxState::SharedPtr msg) {
     if (!is_processing_allowed_) {return;}
-    last_mux_status_ = msg->data;
-    publish_global_status();
+    last_mux_state_ = msg->current_state;
+    publish_global_state();
 }
 
 void SafetyNode::odom_callback(const nav_msgs::msg::Odometry::SharedPtr msg) {
@@ -315,7 +336,7 @@ void SafetyNode::odom_callback(const nav_msgs::msg::Odometry::SharedPtr msg) {
         e_stop_active_ = true;
         current_state_ = SafetyState::EMERGENCY;
         set_hardware_contactors(false);
-        publish_global_status();
+        publish_global_state();
 
         RCLCPP_FATAL(
             get_logger(), "ESCALATION: Robot moving during Soft Stop! Hard E-STOP triggered!");
@@ -331,7 +352,7 @@ void SafetyNode::estop_callback(
     current_state_ = SafetyState::EMERGENCY;
     publish_stop();
     set_hardware_contactors(false);
-    publish_global_status();
+    publish_global_state();
 
     response->success = true;
     response->message = "EMERGENCY STOP (LEVEL 2) ACTIVATED!";
@@ -346,7 +367,7 @@ void SafetyNode::estop_reset_callback(
         e_stop_active_ = false;
         set_hardware_contactors(true);
 
-        publish_global_status();
+        publish_global_state();
 
         RCLCPP_INFO(this->get_logger(), "Safety system RESET. Ready for operation.");
         response->success = true;

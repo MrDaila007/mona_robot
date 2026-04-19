@@ -13,6 +13,9 @@
 
   <depend>rclcpp</depend>
   <depend>rclcpp_lifecycle</depend>
+  <depend>rclpy</depend>
+  <depend>std_msgs</depend>
+  <depend>mona_msgs</depend>
   
   <exec_depend>mona_control</exec_depend>
   <exec_depend>mona_safety</exec_depend>

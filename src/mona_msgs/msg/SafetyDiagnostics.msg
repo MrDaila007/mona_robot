@@ -12,25 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-cmake_minimum_required(VERSION 3.8)
-project(mona_core)
+# Hardware Safety Diagnostics governed by Safety Logic Solver
 
-if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-  add_compile_options(-Wall -Wextra -Wpedantic -Werror)
-endif()
+std_msgs/Header header
 
-find_package(ament_cmake REQUIRED)
-
-# Install configuration, launch, map, and script directories
-install(
-  DIRECTORY launch configs maps scripts
-  DESTINATION share/${PROJECT_NAME}
-)
-
-# Install Python executable scripts (enables 'ros2 run mona_core fdir_manager.py')
-install(
-  PROGRAMS scripts/fdir_manager.py
-  DESTINATION lib/${PROJECT_NAME}
-)
-
-ament_package()
+bool estop_pressed_software  # Remote E-STOP triggered via network
+bool estop_pressed_hardware  # Physical red button pressed on the robot
+bool bumpers_triggered       # Physical collision detected
+bool contactors_closed       # True if power is actively flowing to drive inverters

@@ -3,13 +3,13 @@
     "3D!1": {
       "cameraState": {
         "perspective": true,
-        "distance": 1092.9210309860796,
-        "phi": 63.456921020903366,
-        "thetaOffset": 140.25260740056981,
+        "distance": 986.3612304649016,
+        "phi": 56.35525182515308,
+        "thetaOffset": 138.06747841726127,
         "targetOffset": [
-          0.44200080912184064,
-          -0.5268831514396553,
-          6.394506651292873e-17
+          0.2524235070293059,
+          -0.3693618451407344,
+          6.519838740841009e-17
         ],
         "target": [
           0,
@@ -278,7 +278,8 @@
         "poseEstimateThetaDeviation": 0.26179939
       },
       "imageMode": {},
-      "fixedFrame": "mona_001/base_footprint"
+      "fixedFrame": "mona_001/base_footprint",
+      "synchronize": false
     },
     "RosOut!1d6hnky": {
       "minLogLevel": 1,
@@ -334,17 +335,20 @@
         "colorMode": "gradient",
         "synchronize": false,
         "flipHorizontal": false
-      }
+      },
+      "synchronize": false
     },
     "RawMessages!250uq96": {
-      "topicPath": "/mona_001/robot_status"
+      "topicPath": "/mona_001/system/safety_state",
+      "defaultExpanded": false
     },
-    "RawMessages!1yybazb": {
-      "topicPath": "/mona_001/system/health_state",
-      "diffEnabled": false
+    "RawMessages!137g2gr": {
+      "defaultExpanded": false,
+      "topicPath": "/mona_001/system/health_state.current_state"
     },
     "RawMessages!171sjqf": {
-      "topicPath": "/mona_001/mux_status"
+      "topicPath": "/mona_001/mux_state.current_state",
+      "defaultExpanded": false
     },
     "CallService!EStop": {
       "service": "/emergency_stop",
@@ -379,7 +383,8 @@
           "color": "#00ff00",
           "id": "2f4cf70f-43be-4e08-95d6-bd080d56bac9",
           "label": "Linear X",
-          "showLine": true
+          "showLine": true,
+          "lineSize": 0.6
         },
         {
           "timestampMethod": "publishTime",
@@ -388,7 +393,8 @@
           "color": "#0000ff",
           "id": "c02c6e23-9b4a-47bc-a830-59ca8084ad58",
           "label": "Linear Y",
-          "showLine": true
+          "showLine": true,
+          "lineSize": 0.6
         },
         {
           "timestampMethod": "publishTime",
@@ -397,7 +403,8 @@
           "color": "#ff0000",
           "id": "7a1083eb-dae1-42c9-93ab-5b3f00e117bb",
           "label": "Rotation Z",
-          "showLine": true
+          "showLine": true,
+          "lineSize": 0.6
         }
       ],
       "showLegend": true
@@ -417,7 +424,8 @@
           "enabled": true,
           "color": "#00ff00",
           "id": "2f4cf70f-43be-4e08-95d6-bd080d56bac9",
-          "label": "Linear X"
+          "label": "Linear X",
+          "lineSize": 0.6
         },
         {
           "timestampMethod": "publishTime",
@@ -425,7 +433,8 @@
           "enabled": true,
           "color": "#0000ff",
           "id": "c02c6e23-9b4a-47bc-a830-59ca8084ad58",
-          "label": "Linear Y"
+          "label": "Linear Y",
+          "lineSize": 0.6
         },
         {
           "timestampMethod": "publishTime",
@@ -433,7 +442,8 @@
           "enabled": true,
           "color": "#ff0000",
           "id": "7a1083eb-dae1-42c9-93ab-5b3f00e117bb",
-          "label": "Rotation Z"
+          "label": "Rotation Z",
+          "lineSize": 0.6
         }
       ]
     },
@@ -453,7 +463,8 @@
           "color": "#00ff00",
           "id": "2f4cf70f-43be-4e08-95d6-bd080d56bac9",
           "label": "Linear X",
-          "showLine": false
+          "showLine": false,
+          "lineSize": 1
         },
         {
           "timestampMethod": "publishTime",
@@ -462,7 +473,8 @@
           "color": "#0000ff",
           "id": "c02c6e23-9b4a-47bc-a830-59ca8084ad58",
           "label": "Linear Y",
-          "showLine": false
+          "showLine": false,
+          "lineSize": 1
         },
         {
           "timestampMethod": "publishTime",
@@ -471,7 +483,8 @@
           "color": "#ff0000",
           "id": "7a1083eb-dae1-42c9-93ab-5b3f00e117bb",
           "label": "Rotation Z",
-          "showLine": false
+          "showLine": false,
+          "lineSize": 1
         }
       ]
     }
@@ -491,7 +504,7 @@
             "first": {
               "first": "RawMessages!250uq96",
               "second": {
-                "first": "RawMessages!1yybazb",
+                "first": "RawMessages!137g2gr",
                 "second": "RawMessages!171sjqf",
                 "direction": "column"
               },
@@ -504,14 +517,14 @@
               "direction": "column"
             },
             "direction": "row",
-            "splitPercentage": 60
+            "splitPercentage": 61.372549019607824
           },
           "second": "Parameters!kvpas8",
           "direction": "column",
           "splitPercentage": 59.90639625585024
         },
         "direction": "row",
-        "splitPercentage": 50
+        "splitPercentage": 48.170731707317096
       },
       "second": {
         "first": "Plot!urq9o1",
@@ -528,7 +541,7 @@
       "splitPercentage": 50
     },
     "direction": "row",
-    "splitPercentage": 50
+    "splitPercentage": 48.80332986472424
   },
   "globalVariables": {
     "robot_id": "mona_001"

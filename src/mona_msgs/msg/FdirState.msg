@@ -12,25 +12,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-cmake_minimum_required(VERSION 3.8)
-project(mona_core)
+# Global System Health State governed by FDIR Manager
 
-if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-  add_compile_options(-Wall -Wextra -Wpedantic -Werror)
-endif()
+std_msgs/Header header
 
-find_package(ament_cmake REQUIRED)
+# Enumeration of valid states
+uint8 STATE_SYSTEM_STARTUP = 0
+uint8 STATE_SOFTWARE_OK = 1
+uint8 STATE_DEGRADED = 2
+uint8 STATE_RECONFIGURED = 3
+uint8 STATE_PROTECTIVE_STOP = 4
+uint8 STATE_EMERGENCY = 5
 
-# Install configuration, launch, map, and script directories
-install(
-  DIRECTORY launch configs maps scripts
-  DESTINATION share/${PROJECT_NAME}
-)
-
-# Install Python executable scripts (enables 'ros2 run mona_core fdir_manager.py')
-install(
-  PROGRAMS scripts/fdir_manager.py
-  DESTINATION lib/${PROJECT_NAME}
-)
-
-ament_package()
+uint8 current_state
+string diagnostic_message   # (e.g., "Lidar lost connection")

@@ -13,39 +13,44 @@
 # limitations under the License.
 
 cmake_minimum_required(VERSION 3.8)
-project(mona_description)
+project(mona_msgs)
 
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wall -Wextra -Wpedantic -Werror)
 endif()
 
-find_package(ament_cmake  REQUIRED)
-find_package(urdf         REQUIRED)
-find_package(xacro        REQUIRED)
+find_package(ament_cmake      REQUIRED)
+find_package(std_msgs         REQUIRED)
+find_package(rosidl_default_generators REQUIRED)
 
-install(
-  DIRECTORY urdf meshes rviz worlds
-  DESTINATION share/${PROJECT_NAME}
+# ------------------------------------------------------------------------------
+# Message Generation
+# ------------------------------------------------------------------------------
+rosidl_generate_interfaces(${PROJECT_NAME}
+  "msg/FdirState.msg"
+  "msg/SafetyDiagnostics.msg"
+  "msg/SafetyState.msg"
+  "msg/TwistMuxState.msg"
+  DEPENDENCIES std_msgs
 )
 
+# ------------------------------------------------------------------------------
+# Testing
+# ------------------------------------------------------------------------------
 if(BUILD_TESTING)
-  # 1. Use manual package discovery for specific linters (instead of ament_lint_auto)
+  # Use manual package discovery for linters (instead of ament_lint_auto)
+  # to guarantee strict compliance with enterprise QA standards.
   find_package(ament_cmake_xmllint    REQUIRED)
   find_package(ament_cmake_lint_cmake REQUIRED)
   find_package(ament_cmake_copyright  REQUIRED)
-  find_package(ament_cmake_flake8     REQUIRED)
 
-  # 2. Execute each linter manually
   # Copyright verification
   ament_copyright()
-
-  # Python linter with custom configuration
-  ament_flake8(CONFIG_FILE "${CMAKE_CURRENT_SOURCE_DIR}/../../configs/setup.cfg")
 
   # XML syntax validation (package, launch, xacro)
   ament_xmllint()
 
-  # CMake style validation
+  # CMake syntax formatting
   ament_lint_cmake()
 endif()
 
