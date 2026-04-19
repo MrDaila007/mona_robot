@@ -16,7 +16,7 @@ cmake_minimum_required(VERSION 3.8)
 project(mona_perception)
 
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-  add_compile_options(-Wall -Wextra -Wpedantic)
+  add_compile_options(-Wall -Wextra -Wpedantic -Werror)
 endif()
 
 find_package(ament_cmake      REQUIRED)
@@ -103,14 +103,16 @@ if(BUILD_TESTING)
   find_package(ament_cmake_flake8     REQUIRED)
 
   # Build GTest suite
-  ament_add_gtest(test_lidar_merger test/test_lifecycle_instantiation.cpp)
-  target_link_libraries(test_lidar_merger lidar_merger_component)
-  ament_target_dependencies(test_lidar_merger
+  set(TEST_DEPS
     rclcpp
     rclcpp_lifecycle
     lifecycle_msgs
     sensor_msgs
   )
+
+  ament_add_gtest(test_lidar_merger test/test_lifecycle_instantiation.cpp)
+  target_link_libraries(test_lidar_merger lidar_merger_component)
+  ament_target_dependencies(test_lidar_merger ${TEST_DEPS})
 
   # Execute Linters
   # C++ static analysis and style formatting

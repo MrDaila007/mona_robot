@@ -12,25 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-cmake_minimum_required(VERSION 3.8)
-project(mona_core)
+# Multiplexer internal states
+uint8 IDLE=0
+uint8 MANUAL=1
+uint8 AUTONOMOUS=2
+uint8 BLOCKED_BY_SAFETY=3
 
-if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-  add_compile_options(-Wall -Wextra -Wpedantic -Werror)
-endif()
-
-find_package(ament_cmake REQUIRED)
-
-# Install configuration, launch, map, and script directories
-install(
-  DIRECTORY launch configs maps scripts
-  DESTINATION share/${PROJECT_NAME}
-)
-
-# Install Python executable scripts (enables 'ros2 run mona_core fdir_manager.py')
-install(
-  PROGRAMS scripts/fdir_manager.py
-  DESTINATION lib/${PROJECT_NAME}
-)
-
-ament_package()
+uint8 current_state

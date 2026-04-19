@@ -30,9 +30,21 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 # Ensure graceful cleanup on any exit signal (Ctrl+C, error, or normal termination)
-trap 'echo -e "\n${YELLOW}[INFO] Shutting down simulation and cleaning up...${NC}"; docker rm -f global_clock_bridge >/dev/null 2>&1; docker compose down --remove-orphans >/dev/null 2>&1; exit' EXIT INT TERM
+cleanup() {
+    echo -e "\n${YELLOW}[INFO] Shutting down simulation and cleaning up...${NC}"
+    
+    # Force clean FastDDS shared memory to prevent deadlocks
+    rm -rf /dev/shm/fastrtps* /dev/shm/ros2* /dev/shm/env_shared* 2>/dev/null || true
+    
+    docker rm -f global_clock_bridge >/dev/null 2>&1
+    docker compose down --remove-orphans >/dev/null 2>&1
+    exit
+}
+trap cleanup EXIT INT TERM
 
 echo -e "${BLUE}[INFO] Cleaning up the environment...${NC}"
+# Force clean FastDDS shared memory to prevent deadlocks
+rm -rf /dev/shm/fastrtps* /dev/shm/ros2* /dev/shm/env_shared* 2>/dev/null || true
 docker rm -f global_clock_bridge >/dev/null 2>&1
 docker compose down --remove-orphans >/dev/null 2>&1
 

@@ -16,7 +16,7 @@ cmake_minimum_required(VERSION 3.8)
 project(mona_safety)
 
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-  add_compile_options(-Wall -Wextra -Wpedantic)
+  add_compile_options(-Wall -Wextra -Wpedantic -Werror)
 endif()
 
 find_package(ament_cmake      REQUIRED)
@@ -28,6 +28,7 @@ find_package(diagnostic_updater REQUIRED)
 find_package(nav_msgs         REQUIRED)
 find_package(std_msgs         REQUIRED)
 find_package(std_srvs         REQUIRED)
+find_package(mona_msgs        REQUIRED)
 
 include_directories(include)
 
@@ -54,6 +55,7 @@ ament_target_dependencies(safety_component
   nav_msgs
   std_msgs
   std_srvs
+  mona_msgs
 )
 
 # Register the plugin within the ROS 2 component ecosystem
@@ -93,12 +95,21 @@ if(BUILD_TESTING)
   find_package(ament_cmake_flake8     REQUIRED)
 
   # Build GTest suite
-  ament_add_gtest(test_safety test/test_lifecycle_instantiation.cpp)
-  target_link_libraries(test_safety safety_component)
-  ament_target_dependencies(test_safety
+  set(TEST_DEPS
     rclcpp
     rclcpp_lifecycle
+    geometry_msgs
+    std_msgs
+    std_srvs
   )
+
+  ament_add_gtest(test_safety test/test_lifecycle_instantiation.cpp)
+  target_link_libraries(test_safety safety_component)
+  ament_target_dependencies(test_safety ${TEST_DEPS})
+
+  ament_add_gtest(test_safety_logic test/test_safety_logic.cpp)
+  target_link_libraries(test_safety_logic safety_component)
+  ament_target_dependencies(test_safety_logic ${TEST_DEPS})
 
   # Execute Linters
   # C++ static analysis and style formatting

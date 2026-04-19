@@ -5,7 +5,8 @@
 <package format="3">
   <name>mona_safety</name>
   <version>0.1.0</version>
-<description>Core safety controller, hardware interlocks, and emergency stop management for the MONA swarm architecture.</description>  <maintainer email="vladubase@gmail.com">vladubase</maintainer>
+  <description>Core safety controller, hardware interlocks, and emergency stop management for the MONA swarm architecture.</description>
+  <maintainer email="vladubase@gmail.com">vladubase</maintainer>
   <license>Apache-2.0</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>
@@ -18,6 +19,7 @@
   <depend>nav_msgs</depend>
   <depend>std_msgs</depend>
   <depend>std_srvs</depend>
+  <depend>mona_msgs</depend>
 
   <test_depend>ament_lint_auto</test_depend>
   <test_depend>ament_lint_common</test_depend>

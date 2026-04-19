@@ -27,13 +27,15 @@
 #include "rclcpp_action/rclcpp_action.hpp"
 #include "rclcpp_lifecycle/lifecycle_node.hpp"
 #include "geometry_msgs/msg/twist.hpp"
-#include "std_msgs/msg/string.hpp"
+#include "mona_msgs/msg/fdir_state.hpp"
+#include "mona_msgs/msg/safety_state.hpp"
+#include "mona_msgs/msg/twist_mux_state.hpp"
 #include "nav2_msgs/action/navigate_to_pose.hpp"
 
 namespace mona_control
 {
 // Multiplexer priority and health states
-enum class MuxState {
+enum class TwistMuxState {
     UCFG,  // Unconfigured
     IDLE,  // No active commands received
     MANUAL,  // Human teleoperation active (High Priority)
@@ -57,19 +59,22 @@ protected:
     CallbackReturn on_shutdown(const rclcpp_lifecycle::State &state) override;
 
 private:
-    std::string mux_state_to_string(MuxState state);
+    std::string mux_state_to_string(TwistMuxState state);
 
     void nav_callback(const geometry_msgs::msg::Twist::SharedPtr msg);
     void teleop_callback(const geometry_msgs::msg::Twist::SharedPtr msg);
-    void robot_status_callback(const std_msgs::msg::String::SharedPtr msg);
+    void fdir_state_callback(const mona_msgs::msg::FdirState::SharedPtr msg);
+    void safety_state_callback(const mona_msgs::msg::SafetyState::SharedPtr msg);
     void control_loop();
-    void publish_status(std::string status_text);
+    void publish_state(TwistMuxState state);
 
     rclcpp::Subscription<geometry_msgs::msg::Twist>::SharedPtr nav_sub_;
     rclcpp::Subscription<geometry_msgs::msg::Twist>::SharedPtr teleop_sub_;
-    rclcpp::Subscription<std_msgs::msg::String>::SharedPtr robot_status_sub_;
+    rclcpp::Subscription<mona_msgs::msg::FdirState>::SharedPtr fdir_state_sub_;
+    rclcpp::Subscription<mona_msgs::msg::SafetyState>::SharedPtr safety_state_sub_;
+
     rclcpp_lifecycle::LifecyclePublisher<geometry_msgs::msg::Twist>::SharedPtr smooth_pub_;
-    rclcpp_lifecycle::LifecyclePublisher<std_msgs::msg::String>::SharedPtr status_pub_;
+    rclcpp_lifecycle::LifecyclePublisher<mona_msgs::msg::TwistMuxState>::SharedPtr state_pub_;
 
     rclcpp_action::Client<nav2_msgs::action::NavigateToPose>::SharedPtr nav_client_;
     rclcpp::TimerBase::SharedPtr watchdog_timer_;
@@ -83,12 +88,18 @@ private:
     rclcpp::Time last_teleop_time_;
     rclcpp::Time last_nav_time_;
 
-    MuxState current_state_;
+    TwistMuxState current_state_;
     std::atomic<bool> is_safety_blocked_{false};
+    std::atomic<bool> is_fdir_blocked_{false};
+    std::atomic<bool> is_estop_blocked_{false};
 
     double manual_timeout_;
     double cmd_timeout_;
     double ema_alpha_;
+
+    double max_speed_normal_;
+    double max_speed_degraded_;
+    std::atomic<bool> is_degraded_{false};
 };
 }  // namespace mona_control
 

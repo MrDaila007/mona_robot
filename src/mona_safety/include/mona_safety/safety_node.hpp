@@ -24,7 +24,11 @@
 #include "rclcpp_lifecycle/lifecycle_node.hpp"
 #include "geometry_msgs/msg/twist.hpp"
 #include "nav_msgs/msg/odometry.hpp"
-#include "std_msgs/msg/string.hpp"
+#include "std_msgs/msg/bool.hpp"
+#include "mona_msgs/msg/fdir_state.hpp"
+#include "mona_msgs/msg/safety_state.hpp"
+#include "mona_msgs/msg/twist_mux_state.hpp"
+#include "mona_msgs/msg/safety_diagnostics.hpp"
 #include "std_srvs/srv/trigger.hpp"
 #include "diagnostic_updater/diagnostic_updater.hpp"
 
@@ -66,8 +70,8 @@ private:
     std::string safety_state_to_string(SafetyState state);
 
     void smoothed_vel_callback(const geometry_msgs::msg::Twist::SharedPtr msg);
-    void health_state_callback(const std_msgs::msg::String::SharedPtr msg);
-    void mux_status_callback(const std_msgs::msg::String::SharedPtr msg);
+    void health_state_callback(const mona_msgs::msg::FdirState::SharedPtr msg);
+    void mux_state_callback(const mona_msgs::msg::TwistMuxState::SharedPtr msg);
     void odom_callback(const nav_msgs::msg::Odometry::SharedPtr msg);
     void estop_callback(
         const std::shared_ptr<std_srvs::srv::Trigger::Request> request,
@@ -78,24 +82,25 @@ private:
 
     void set_hardware_contactors(bool enable);
     void publish_stop();
-    void publish_global_status();
+    void publish_global_state();
     void produce_diagnostics(diagnostic_updater::DiagnosticStatusWrapper &stat);
 
     rclcpp::Subscription<geometry_msgs::msg::Twist>::SharedPtr smooth_sub_;
-    rclcpp::Subscription<std_msgs::msg::String>::SharedPtr health_sub_;
-    rclcpp::Subscription<std_msgs::msg::String>::SharedPtr mux_status_sub_;
+    rclcpp::Subscription<mona_msgs::msg::FdirState>::SharedPtr health_sub_;
+    rclcpp::Subscription<mona_msgs::msg::TwistMuxState>::SharedPtr mux_state_sub_;
     rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odom_sub_;
 
     rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr srv_estop_;
     rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr srv_estop_reset_;
     rclcpp_lifecycle::LifecyclePublisher<geometry_msgs::msg::Twist>::SharedPtr motor_pub_;
-    rclcpp_lifecycle::LifecyclePublisher<std_msgs::msg::String>::SharedPtr robot_status_pub_;
+    rclcpp_lifecycle::LifecyclePublisher<mona_msgs::msg::SafetyState>::SharedPtr safety_state_pub_;
+    rclcpp_lifecycle::LifecyclePublisher<std_msgs::msg::Bool>::SharedPtr contactor_pub_;
     diagnostic_updater::Updater diagnostic_updater_;
 
     // Default safe state on initialization
-    SafetyState current_state_   = SafetyState::PROTECTIVE_STOP;
-    std::string last_fdir_state_ = "INIT";
-    std::string last_mux_status_ = "IDLE";
+    SafetyState current_state_ = SafetyState::PROTECTIVE_STOP;
+    uint8_t last_fdir_state_   = 255;       // 255 as an invalid initial state
+    uint8_t last_mux_state_    = mona_msgs::msg::TwistMuxState::IDLE;
 
     std::atomic<bool> e_stop_active_{false};
     std::atomic<bool> is_processing_allowed_{false};

@@ -16,7 +16,7 @@ cmake_minimum_required(VERSION 3.8)
 project(mona_control)
 
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-  add_compile_options(-Wall -Wextra -Wpedantic)
+  add_compile_options(-Wall -Wextra -Wpedantic -Werror)
 endif()
 
 find_package(ament_cmake      REQUIRED)
@@ -27,6 +27,7 @@ find_package(rclcpp_action    REQUIRED)
 find_package(geometry_msgs    REQUIRED)
 find_package(std_msgs         REQUIRED)
 find_package(nav2_msgs        REQUIRED)
+find_package(mona_msgs        REQUIRED)
 
 include_directories(include)
 
@@ -51,6 +52,7 @@ ament_target_dependencies(twist_mux_component
   geometry_msgs
   std_msgs
   nav2_msgs
+  mona_msgs
 )
 
 # Register the plugin within the ROS 2 component ecosystem
@@ -90,12 +92,20 @@ if(BUILD_TESTING)
   find_package(ament_cmake_flake8     REQUIRED)
 
   # Build GTest suite
-  ament_add_gtest(test_control test/test_lifecycle_instantiation.cpp)
-  target_link_libraries(test_control twist_mux_component)
-  ament_target_dependencies(test_control
+  set(TEST_DEPS
     rclcpp
     rclcpp_lifecycle
+    geometry_msgs
+    mona_msgs
   )
+
+  ament_add_gtest(test_control test/test_lifecycle_instantiation.cpp)
+  target_link_libraries(test_control twist_mux_component)
+  ament_target_dependencies(test_control ${TEST_DEPS})
+
+  ament_add_gtest(test_twist_mux_safety test/test_twist_mux_safety.cpp)
+  target_link_libraries(test_twist_mux_safety twist_mux_component)
+  ament_target_dependencies(test_twist_mux_safety ${TEST_DEPS})
 
   # Execute Linters
   # C++ static analysis and style formatting

@@ -29,7 +29,20 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
-trap 'echo -e "\n${YELLOW}[INFO] Shutting down the fleet gracefully...${NC}"; docker stop -t 10 $(docker ps -q --filter name="mona_0*") >/dev/null 2>&1; exit' EXIT INT TERM
+# Ensure graceful cleanup on any exit signal
+cleanup() {
+    echo -e "\n${YELLOW}[INFO] Shutting down the fleet gracefully...${NC}"
+    
+    # Force clean FastDDS shared memory to prevent deadlocks
+    rm -rf /dev/shm/fastrtps* /dev/shm/ros2* /dev/shm/env_shared* 2>/dev/null || true
+    
+    docker stop -t 10 $(docker ps -q --filter name="mona_0*") >/dev/null 2>&1
+    exit
+}
+trap cleanup EXIT INT TERM
+
+# Force clean FastDDS shared memory to prevent deadlocks
+rm -rf /dev/shm/fastrtps* /dev/shm/ros2* /dev/shm/env_shared* 2>/dev/null || true
 
 ROBOT_COUNT=${1:-1}
 
