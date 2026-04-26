@@ -20,10 +20,10 @@
 #include "lifecycle_msgs/msg/state.hpp"
 #include "lifecycle_msgs/msg/transition.hpp"
 
-#include "mona_perception/lidar_merger_node.hpp"
+#include "mona_control/twist_mux_node.hpp"
 
 // Test fixture to initialize the standard ROS 2 environment
-class TestLidarMerger : public ::testing::Test {
+class TestTwistMux : public ::testing::Test {
 protected:
     static void SetUpTestSuite() {
         rclcpp::init(0, nullptr);
@@ -34,10 +34,14 @@ protected:
     }
 };
 
-// Test 1: Verify initialization and lifecycle state transitions
-TEST_F(TestLidarMerger, LifecycleTransition) {
+// Test 1: Verify initialization, name registration, and lifecycle state transitions
+TEST_F(TestTwistMux, LifecycleTransition) {
     rclcpp::NodeOptions options;
-    auto node = std::make_shared<mona_perception::LidarMergerNode>(options);
+    auto node = std::make_shared<mona_control::TwistMuxNode>(options);
+
+    // Smoke Test: Verify Node Instantiation and Name
+    EXPECT_NE(node, nullptr);
+    EXPECT_STREQ(node->get_name(), "twist_mux_node");
 
     // Verify the initial state is strictly UNCONFIGURED
     EXPECT_EQ(
@@ -46,7 +50,7 @@ TEST_F(TestLidarMerger, LifecycleTransition) {
     );
 
     // Trigger on_configure()
-    // This verifies memory allocation for tf2_buffer and message_filters
+    // This verifies memory allocation, parameter retrieval, and publisher/subscription setup
     auto state_after_configure = node->trigger_transition(
         lifecycle_msgs::msg::Transition::TRANSITION_CONFIGURE);
 

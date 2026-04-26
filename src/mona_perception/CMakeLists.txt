@@ -110,9 +110,9 @@ if(BUILD_TESTING)
     sensor_msgs
   )
 
-  ament_add_gtest(test_lidar_merger test/test_lifecycle_instantiation.cpp)
-  target_link_libraries(test_lidar_merger lidar_merger_component)
-  ament_target_dependencies(test_lidar_merger ${TEST_DEPS})
+  ament_add_gtest(test_lidar_merger_lifecycle test/test_lidar_merger_lifecycle.cpp)
+  target_link_libraries(test_lidar_merger_lifecycle lidar_merger_component)
+  ament_target_dependencies(test_lidar_merger_lifecycle ${TEST_DEPS})
 
   # Execute Linters
   # C++ static analysis and style formatting

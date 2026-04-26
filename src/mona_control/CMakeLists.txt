@@ -99,9 +99,9 @@ if(BUILD_TESTING)
     mona_msgs
   )
 
-  ament_add_gtest(test_control test/test_lifecycle_instantiation.cpp)
-  target_link_libraries(test_control twist_mux_component)
-  ament_target_dependencies(test_control ${TEST_DEPS})
+  ament_add_gtest(test_twist_mux_lifecycle test/test_twist_mux_lifecycle.cpp)
+  target_link_libraries(test_twist_mux_lifecycle twist_mux_component)
+  ament_target_dependencies(test_twist_mux_lifecycle ${TEST_DEPS})
 
   ament_add_gtest(test_twist_mux_safety test/test_twist_mux_safety.cpp)
   target_link_libraries(test_twist_mux_safety twist_mux_component)
