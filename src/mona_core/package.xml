@@ -12,10 +12,12 @@
   <buildtool_depend>ament_cmake</buildtool_depend>
 
   <depend>rclcpp</depend>
+  <depend>rclcpp_components</depend>
   <depend>rclcpp_lifecycle</depend>
-  <depend>rclpy</depend>
+  <depend>lifecycle_msgs</depend>
   <depend>std_msgs</depend>
   <depend>mona_msgs</depend>
+  <depend>geometry_msgs</depend>
   
   <exec_depend>mona_control</exec_depend>
   <exec_depend>mona_safety</exec_depend>
