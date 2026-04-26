@@ -17,7 +17,7 @@
 # ==============================================================================
 
 # ==============================================================================
-# Script:   start_1_robot.bash
+# Script:   bringup_1_robot.bash
 # Purpose:  Launch a single robot instance with Gazebo, RViz2, and Foxglove.
 #           Useful for testing teleoperation (gamepad) and standalone behaviors.
 # ==============================================================================
