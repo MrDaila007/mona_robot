@@ -67,7 +67,7 @@ jobs:
             -v ${{ github.workspace }}/configs:/home/mona_dev/mona_ws/configs \
             -v ${{ github.workspace }}/build:/home/mona_dev/mona_ws/build \
             mona_ci:latest \
-            /bin/bash -c "cd /home/mona_dev/mona_ws && ./scripts/local_ci.bash"
+            /bin/bash -c "cd /home/mona_dev/mona_ws && ./scripts/run_ci_checks.bash"
       
       # 4. Publish Test Reports to the GitHub UI
       - name: Publish Test Report

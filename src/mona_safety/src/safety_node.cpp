@@ -34,7 +34,17 @@ SafetyNode::SafetyNode(const rclcpp::NodeOptions &options)
 }
 
 SafetyNode::~SafetyNode() {
+    // 1. Actuate hardware safety fallback (Fail-Safe) prior to memory teardown
     set_hardware_contactors(false);
+
+    // 2. CRITICAL FAULT MITIGATION: Terminate active service servers to prevent
+    // incoming E-STOP or Reset network requests from accessing a dying component instance.
+    if (srv_estop_) {
+        srv_estop_.reset();
+    }
+    if (srv_estop_reset_) {
+        srv_estop_reset_.reset();
+    }
 }
 
 std::string SafetyNode::safety_state_to_string(SafetyState state) {

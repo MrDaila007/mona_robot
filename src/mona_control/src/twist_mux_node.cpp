@@ -30,7 +30,23 @@ TwistMuxNode::TwistMuxNode(const rclcpp::NodeOptions &options)
     this->declare_parameter("max_speed_degraded", 0.3);
 }
 
-TwistMuxNode::~TwistMuxNode() {}
+TwistMuxNode::~TwistMuxNode() {
+    // CRITICAL FAULT MITIGATION: Explicitly cancel high-frequency
+    // timers prior to object destruction. Prevents the ROS 2 MultiThreadedExecutor
+    // from triggering callbacks on a deallocated 'this' pointer when the component
+    // is abruptly unloaded (Node Crash scenario).
+    is_shutting_down_ = true;
+
+    if (watchdog_timer_) {
+        watchdog_timer_->cancel();
+        watchdog_timer_.reset();
+    }
+
+    // Detach action clients and subscriptions explicitly to ensure absolute memory safety
+    if (nav_client_) {
+        nav_client_.reset();
+    }
+}
 
 CallbackReturn TwistMuxNode::on_configure(const rclcpp_lifecycle::State &) {
     cmd_timeout_        = this->get_parameter("command_timeout").as_double();
@@ -71,6 +87,10 @@ CallbackReturn TwistMuxNode::on_configure(const rclcpp_lifecycle::State &) {
         "system/safety_state", 10, std::bind(
             &TwistMuxNode::safety_state_callback, this,
             std::placeholders::_1), sub_opts);
+
+    // --- ACTION CLIENTS --- //
+    nav_client_ = rclcpp_action::create_client<nav2_msgs::action::NavigateToPose>(
+        this, "navigate_to_pose", callback_group);
 
     watchdog_timer_ = this->create_wall_timer(
         10ms, std::bind(&TwistMuxNode::control_loop, this), callback_group);
@@ -162,6 +182,7 @@ void TwistMuxNode::safety_state_callback(const mona_msgs::msg::SafetyState::Shar
 }
 
 void TwistMuxNode::teleop_callback(const geometry_msgs::msg::Twist::SharedPtr msg) {
+    if (is_shutting_down_.load()) {return;}
     std::lock_guard<std::mutex> lock(mux_mutex_);
     if (is_safety_blocked_) {return;}
 
@@ -188,6 +209,7 @@ void TwistMuxNode::teleop_callback(const geometry_msgs::msg::Twist::SharedPtr ms
 }
 
 void TwistMuxNode::nav_callback(const geometry_msgs::msg::Twist::SharedPtr msg) {
+    if (is_shutting_down_.load()) {return;}
     std::lock_guard<std::mutex> lock(mux_mutex_);
     if (is_safety_blocked_) {return;}
 

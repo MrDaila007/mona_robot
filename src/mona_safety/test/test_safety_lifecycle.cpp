@@ -34,10 +34,14 @@ protected:
     }
 };
 
-// Test 1: Verify initialization and lifecycle state transitions
+// Test 1: Verify initialization, name registration, and lifecycle state transitions
 TEST_F(TestSafety, LifecycleTransition) {
     rclcpp::NodeOptions options;
     auto node = std::make_shared<mona_safety::SafetyNode>(options);
+
+    // Smoke Test: Verify Node Instantiation and Name
+    EXPECT_NE(node, nullptr);
+    EXPECT_STREQ(node->get_name(), "safety_node");
 
     // Verify the initial state is strictly UNCONFIGURED
     EXPECT_EQ(

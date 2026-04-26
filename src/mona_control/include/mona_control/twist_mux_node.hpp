@@ -100,6 +100,7 @@ private:
     double max_speed_normal_;
     double max_speed_degraded_;
     std::atomic<bool> is_degraded_{false};
+    std::atomic<bool> is_shutting_down_{false};
 };
 }  // namespace mona_control
 

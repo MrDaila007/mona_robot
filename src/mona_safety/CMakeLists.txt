@@ -103,9 +103,9 @@ if(BUILD_TESTING)
     std_srvs
   )
 
-  ament_add_gtest(test_safety test/test_lifecycle_instantiation.cpp)
-  target_link_libraries(test_safety safety_component)
-  ament_target_dependencies(test_safety ${TEST_DEPS})
+  ament_add_gtest(test_safety_lifecycle test/test_safety_lifecycle.cpp)
+  target_link_libraries(test_safety_lifecycle safety_component)
+  ament_target_dependencies(test_safety_lifecycle ${TEST_DEPS})
 
   ament_add_gtest(test_safety_logic test/test_safety_logic.cpp)
   target_link_libraries(test_safety_logic safety_component)

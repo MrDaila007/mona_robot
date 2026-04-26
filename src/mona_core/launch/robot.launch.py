@@ -40,7 +40,6 @@ from launch.substitutions import LaunchConfiguration, Command, PythonExpression
 from launch_ros.actions import Node, ComposableNodeContainer, PushRosNamespace, SetRemap
 from launch_ros.descriptions import ComposableNode
 from launch_ros.parameter_descriptions import ParameterValue
-import xacro
 
 
 def generate_launch_description():
@@ -49,14 +48,15 @@ def generate_launch_description():
     pkg_mona_description = get_package_share_directory("mona_description")
     pkg_mona_perception = get_package_share_directory("mona_perception")
 
-    xacro_file = os.path.join(pkg_mona_description, "urdf", "mona.urdf.xacro")
-    rviz_config_file = os.path.join(pkg_mona_description, "rviz", "mona.rviz")
-    ekf_config_path = os.path.join(pkg_mona_core, "configs", "ekf.yaml")
-    map_file_path = os.path.join(pkg_mona_core, "maps", "warehouse_map_serialized")
-    slam_params_file = os.path.join(
-        pkg_mona_core, "configs", "mapper_params_online_async.yaml"
-    )
-    nav2_params_file = os.path.join(pkg_mona_core, "configs", "nav2_params.yaml")
+    file_fdir_policy = os.path.join(pkg_mona_core, "configs", "fdir_policy.yaml")
+    file_ekf_config = os.path.join(pkg_mona_core, "configs", "ekf.yaml")
+
+    file_xacro = os.path.join(pkg_mona_description, "urdf", "mona.urdf.xacro")
+    file_rviz_config = os.path.join(pkg_mona_description, "rviz", "mona.rviz")
+
+    # file_map_serialized = os.path.join(pkg_mona_core, "maps", "warehouse_map_serialized")
+    # file_slam_params = os.path.join(pkg_mona_core, "configs", "mapper_params_online_async.yaml")
+    # file_nav2_params = os.path.join(pkg_mona_core, "configs", "nav2_params.yaml")
 
     # --- LAUNCH ARGUMENTS --- #
     arg_namespace = DeclareLaunchArgument(
@@ -110,7 +110,7 @@ def generate_launch_description():
     # --- URDF PROCESSING --- #
     robot_description = {
         "robot_description": ParameterValue(
-            Command(["xacro ", xacro_file, " namespace:=", namespace]),
+            Command(["xacro ", file_xacro, " namespace:=", namespace]),
             value_type=str,
         )
     }
@@ -165,7 +165,7 @@ def generate_launch_description():
                 namespace,
                 "/joint_states@sensor_msgs/msg/JointState[ignition.msgs.Model",
             ],
-            # "/clock@rosgraph_msgs/msg/Clock[ignition.msgs.Clock",  # The /clock topic remains global
+            # "/clock@rosgraph_msgs/msg/Clock[ignition.msgs.Clock",  # /clock remains global
             [
                 "/",
                 namespace,
@@ -212,28 +212,21 @@ def generate_launch_description():
         package="rviz2",
         executable="rviz2",
         name="rviz2",
-        arguments=["-d", rviz_config_file],
+        arguments=["-d", file_rviz_config],
         parameters=[{"use_sim_time": use_sim_time}],
         output="screen",
         condition=UnlessCondition(headless),
     )
 
-    # 5. Zero-copy Multi-Threaded component container
-    container_mona_core = ComposableNodeContainer(
-        name="mona_core_container",
+    # 5. HIGH-BANDWIDTH CONTAINER: Zero-copy environment for perception and control
+    # Expendable layer: If this crashes, the isolated safety layer will halt the robot.
+    container_sensor_control = ComposableNodeContainer(
+        name="sensor_control_executor",
         namespace="",
         package="rclcpp_components",
-        executable="component_container_mt",  # mt = Multi-Threaded
+        executable="component_container_mt",
         output="screen",
         composable_node_descriptions=[
-            # Security module
-            ComposableNode(
-                package="mona_safety",
-                plugin="mona_safety::SafetyNode",
-                name="safety_node",
-                parameters=[{"use_sim_time": use_sim_time}],
-            ),
-            # Lidar fusion module
             ComposableNode(
                 package="mona_perception",
                 plugin="mona_perception::LidarMergerNode",
@@ -247,7 +240,6 @@ def generate_launch_description():
                     }
                 ],
             ),
-            # Control module
             ComposableNode(
                 package="mona_control",
                 plugin="mona_control::TwistMuxNode",
@@ -257,16 +249,43 @@ def generate_launch_description():
         ],
     )
 
-    # 6. FDIR Manager
-    node_fdir_manager = Node(
-        package="mona_core",
-        executable="fdir_manager.py",
-        name="mona_fdir_manager",
+    # 6. ISOLATED PROCESS: Hardware Safety Core
+    # Runs in its own OS process to survive perception/control crashes.
+    process_safety_core = ComposableNodeContainer(
+        name="isolated_safety_executor",
+        namespace="",
+        package="rclcpp_components",
+        executable="component_container_mt",
         output="screen",
-        parameters=[{"use_sim_time": use_sim_time}],
+        composable_node_descriptions=[
+            ComposableNode(
+                package="mona_safety",
+                plugin="mona_safety::SafetyNode",
+                name="safety_node",
+                parameters=[{"use_sim_time": use_sim_time}],
+            )
+        ],
     )
 
-    # 7. Perception
+    # 7. ISOLATED PROCESS: FDIR Watchdog
+    # Runs in its own OS process. If this dies, the hardware PLC watchdog trips.
+    process_fdir_watchdog = ComposableNodeContainer(
+        name="isolated_fdir_executor",
+        namespace="",
+        package="rclcpp_components",
+        executable="component_container_mt",
+        output="screen",
+        composable_node_descriptions=[
+            ComposableNode(
+                package="mona_core",
+                plugin="mona_core::FdirManagerNode",
+                name="mona_fdir_manager",
+                parameters=[{"use_sim_time": use_sim_time}, file_fdir_policy],
+            )
+        ],
+    )
+
+    # 8. Perception
     launch_perception = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
             os.path.join(pkg_mona_perception, "launch", "perception.launch.py")
@@ -274,7 +293,7 @@ def generate_launch_description():
         launch_arguments={"use_sim_time": use_sim_time, "namespace": namespace}.items(),
     )
 
-    # 8. EKF (Robot Localization)
+    # 9. EKF (Robot Localization)
     ekf_param_rewrites = {
         "use_sim_time": use_sim_time,
         "map_frame": "/map",
@@ -284,7 +303,7 @@ def generate_launch_description():
     }
 
     ekf_configured_params = RewrittenYaml(
-        source_file=ekf_config_path,
+        source_file=file_ekf_config,
         root_key=namespace,
         param_rewrites=ekf_param_rewrites,
         convert_types=True,
@@ -299,62 +318,62 @@ def generate_launch_description():
         remappings=[("odometry/filtered", "odom_filtered")],
     )
 
-    # 9. SLAM (Localization mode)
-    map_file_path = os.path.join(pkg_mona_core, "maps", "warehouse_map_serialized")
+    # # 10. SLAM (Localization mode)
+    # map_file_path = os.path.join(pkg_mona_core, "maps", "warehouse_map_serialized")
 
-    slam_param_rewrites = {
-        "use_sim_time": use_sim_time,
-        "odom_frame": [namespace, "/odom"],
-        "map_frame": "map",  # The map frame is always global
-        "base_frame": [namespace, "/base_footprint"],
-        "scan_topic": "scan",
-        "map_file_name": map_file_path,  # Specify the path to the map file
-        # 'map_start_pose': [spawn_x, spawn_y, spawn_yaw] # Uncomment if using dynamic coordinate spawning
-    }
+    # slam_param_rewrites = {
+    #     "use_sim_time": use_sim_time,
+    #     "odom_frame": [namespace, "/odom"],
+    #     "map_frame": "map",  # The map frame is always global
+    #     "base_frame": [namespace, "/base_footprint"],
+    #     "scan_topic": "scan",
+    #     "map_file_name": map_file_path,  # Specify the path to the map file
+    #     # 'map_start_pose': [spawn_x, spawn_y, spawn_yaw] # Dynamic coord spawning
+    # }
 
-    slam_configured_params = RewrittenYaml(
-        source_file=slam_params_file,
-        root_key=namespace,
-        param_rewrites=slam_param_rewrites,
-        convert_types=True,
-    )
+    # slam_configured_params = RewrittenYaml(
+    #     source_file=slam_params_file,
+    #     root_key=namespace,
+    #     param_rewrites=slam_param_rewrites,
+    #     convert_types=True,
+    # )
 
-    launch_slam = IncludeLaunchDescription(
-        PythonLaunchDescriptionSource(
-            os.path.join(pkg_mona_core, "launch", "slam.launch.py")
-        ),
-        launch_arguments={
-            "use_sim_time": use_sim_time,
-            "slam_params_file": slam_configured_params,
-        }.items(),
-    )
+    # launch_slam = IncludeLaunchDescription(
+    #     PythonLaunchDescriptionSource(
+    #         os.path.join(pkg_mona_core, "launch", "slam.launch.py")
+    #     ),
+    #     launch_arguments={
+    #         "use_sim_time": use_sim_time,
+    #         "slam_params_file": slam_configured_params,
+    #     }.items(),
+    # )
 
-    # 10. Autonomous navigation Nav2
-    nav2_param_rewrites = {
-        "use_sim_time": use_sim_time,
-        "robot_base_frame": [namespace, "/base_footprint"],
-        "odom_frame": [namespace, "/odom"],
-        "global_frame": "map",  # Nav2 maps are built relative to the global 'map' frame
-    }
+    # # 11. Autonomous navigation Nav2
+    # nav2_param_rewrites = {
+    #     "use_sim_time": use_sim_time,
+    #     "robot_base_frame": [namespace, "/base_footprint"],
+    #     "odom_frame": [namespace, "/odom"],
+    #     "global_frame": "map",  # Nav2 maps are built relative to the global 'map' frame
+    # }
 
-    nav2_configured_params = RewrittenYaml(
-        source_file=nav2_params_file,
-        root_key="",
-        param_rewrites=nav2_param_rewrites,
-        convert_types=True,
-    )
+    # nav2_configured_params = RewrittenYaml(
+    #     source_file=nav2_params_file,
+    #     root_key="",
+    #     param_rewrites=nav2_param_rewrites,
+    #     convert_types=True,
+    # )
 
-    launch_navigation = IncludeLaunchDescription(
-        PythonLaunchDescriptionSource(
-            os.path.join(pkg_mona_core, "launch", "navigation.launch.py")
-        ),
-        launch_arguments={
-            "use_sim_time": use_sim_time,
-            "params_file": nav2_configured_params,
-        }.items(),
-    )
+    # launch_navigation = IncludeLaunchDescription(
+    #     PythonLaunchDescriptionSource(
+    #         os.path.join(pkg_mona_core, "launch", "navigation.launch.py")
+    #     ),
+    #     launch_arguments={
+    #         "use_sim_time": use_sim_time,
+    #         "params_file": nav2_configured_params,
+    #     }.items(),
+    # )
 
-    # 11. Manual control (Gamepad)
+    # 12. Manual control (Gamepad)
     launch_teleop = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
             os.path.join(pkg_mona_core, "launch", "teleop.launch.py")
@@ -362,7 +381,7 @@ def generate_launch_description():
         condition=IfCondition(use_gamepad),
     )
 
-    # 12. Rosbag
+    # 13. Rosbag
     rosbag_record = ExecuteProcess(
         cmd=[
             "ros2",
@@ -390,8 +409,9 @@ def generate_launch_description():
             spawn_entity,
             bridge_gazebo_ign,
             node_rviz,
-            container_mona_core,
-            node_fdir_manager,
+            container_sensor_control,
+            process_safety_core,
+            process_fdir_watchdog,
             launch_perception,
             node_ekf,
             launch_teleop,

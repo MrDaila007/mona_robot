@@ -30,6 +30,7 @@ from launch.actions import (
     IncludeLaunchDescription,
     SetEnvironmentVariable,
     DeclareLaunchArgument,
+    TimerAction,
 )
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration, PythonExpression
@@ -89,6 +90,28 @@ def generate_launch_description():
         output="screen",
     )
 
+    # ==============================================================================
+    # CRITICAL ARCHITECTURAL NOTE: Late Joiner QoS Mitigation for Foxglove
+    # ==============================================================================
+    # The Foxglove bridge is deliberately wrapped in a TimerAction to delay its execution.
+    #
+    # Rationale: Our C++ IPC component container initializes the robot's hardware
+    # interfaces and TF tree extremely fast (in milliseconds). The `/tf_static` topic,
+    # which contains the robot's structural frames, relies on the `Transient Local`
+    # QoS policy.
+    #
+    # If the Foxglove bridge is launched simultaneously with the robot spawn inside
+    # a Dockerized FastDDS network, a known Race Condition occurs during topology
+    # discovery. The bridge drops the initial `/tf_static` broadcast, causing the
+    # Foxglove Studio UI to cache an empty TF tree ("No options" in Fixed Frame)
+    # and fail to sync with `/clock`.
+    #
+    # By delaying the bridge by 7 seconds, we guarantee it joins the ROS 2 graph
+    # ONLY after the network topology is fully stabilized and latched topics are
+    # populated, ensuring a flawless telemetry sync.
+    # ==============================================================================
+    delayed_foxglove = TimerAction(period=7.0, actions=[bridge_foxglove])
+
     # --- LAUNCH --- #
     return LaunchDescription(
         [
@@ -97,6 +120,6 @@ def generate_launch_description():
             arg_headless,
             arg_use_sim_time,
             gz_sim,
-            bridge_foxglove,
+            delayed_foxglove,
         ]
     )

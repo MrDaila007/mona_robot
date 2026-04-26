@@ -1,4 +1,5 @@
 #!/bin/bash
+source /opt/ros/humble/setup.bash
 
 # ==============================================================================
 # Copyright 2026 vladubase
@@ -38,27 +39,9 @@ if [ ! -d "src" ]; then
 fi
 
 # ------------------------------------------------------------------------------
-# 1. Auto-format Code and Static Analysis (Fix style before testing)
+# 1. Static Analysis (Linting Only - No Reformatting)
 # ------------------------------------------------------------------------------
-echo -e "${YELLOW}[1/4] Auto-formatting code to match standards...${NC}"
-
-# C++ Formatting (uncrustify)
-if command -v ament_uncrustify &> /dev/null; then
-    ament_uncrustify -c configs/uncrustify.cfg --reformat src/ > /dev/null 2>&1
-    echo -e "${GREEN}[OK] C++ formatted (ament_uncrustify).${NC}"
-else
-    echo -e "${RED}[WARN] ament_uncrustify not found, skipping C++ format.${NC}"
-fi
-
-# Python Formatting (Black)
-echo -e "${BLUE}[CI] Running Black formatter...${NC}"
-if python3 -m black --version &> /dev/null; then
-    python3 -m black src/ scripts/
-    echo -e "${GREEN}[OK] Python formatted (Black).${NC}"
-else
-    echo -e "${RED}[ERROR] Black formatter not found. Run 'pip install black' locally.${NC}"
-    exit 1
-fi
+echo -e "${YELLOW}[1/4] Running Static Analysis...${NC}"
 
 # Python Linting (Flake8)
 echo -e "${BLUE}[CI] Running Flake8 linter...${NC}"
@@ -70,9 +53,6 @@ else
     echo -e "${RED}[ERROR] Flake8 linter not found. Run 'pip install flake8' locally.${NC}"
     exit 1
 fi
-
-# Strip trailing whitespace from CMakeLists.txt
-find src -name "CMakeLists.txt" -exec sed -i 's/[[:space:]]*$//' {} +
 
 # ------------------------------------------------------------------------------
 # 2. Clean Workspace
@@ -152,6 +132,6 @@ else
     echo -e "${RED}[FAILURE] One or more tests failed. See details above.${NC}"
     echo -e "${RED}=================================================${NC}"
     
-    echo -e "\n${YELLOW}[!] Please fix the linting or logic errors before committing.${NC}"
+    echo -e "\n${YELLOW}[!] Please fix the logic errors before committing.${NC}"
     exit 1
 fi

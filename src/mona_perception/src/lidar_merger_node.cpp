@@ -29,7 +29,20 @@ LidarMergerNode::LidarMergerNode(const rclcpp::NodeOptions &options)
           "mona_lidar_merger",
           options) {}
 
-LidarMergerNode::~LidarMergerNode() {}
+LidarMergerNode::~LidarMergerNode() {
+    // CRITICAL FAULT MITIGATION: Terminate the message_filters synchronizer and TF listener.
+    // Prevents background threading from triggering fused_callback() with late
+    // sensor messages while the node's memory is actively being reclaimed.
+    if (sync_) {
+        sync_.reset();
+    }
+    if (tf_listener_) {
+        tf_listener_.reset();
+    }
+    if (tf_buffer_) {
+        tf_buffer_.reset();
+    }
+}
 
 // 1. CONFIGURE: Allocate memory, initialize TF and subscribers
 CallbackReturn LidarMergerNode::on_configure(const rclcpp_lifecycle::State &) {

@@ -19,18 +19,112 @@ if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wall -Wextra -Wpedantic -Werror)
 endif()
 
-find_package(ament_cmake REQUIRED)
+find_package(ament_cmake        REQUIRED)
+find_package(rclcpp             REQUIRED)
+find_package(rclcpp_components  REQUIRED)
+find_package(rclcpp_lifecycle   REQUIRED)
+find_package(lifecycle_msgs     REQUIRED)
+find_package(std_msgs           REQUIRED)
+find_package(mona_msgs          REQUIRED)
+find_package(geometry_msgs      REQUIRED)
+
+include_directories(include)
+
+# ------------------------------------------------------------------------------
+# 1. Build the Component Library (FDIR Manager)
+# ------------------------------------------------------------------------------
+add_library(fdir_manager_component SHARED
+  src/fdir_manager_node.cpp
+)
+
+target_include_directories(fdir_manager_component PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:include>
+)
+
+# Link dependencies
+ament_target_dependencies(fdir_manager_component
+  rclcpp
+  rclcpp_components
+  rclcpp_lifecycle
+  lifecycle_msgs
+  std_msgs
+  mona_msgs
+  geometry_msgs
+)
+
+# Register the plugin within the ROS 2 component ecosystem
+rclcpp_components_register_node(fdir_manager_component
+  PLUGIN "mona_core::FdirManagerNode"
+  EXECUTABLE fdir_manager_node
+)
+
+# ------------------------------------------------------------------------------
+# 2. Install Targets & Directories
+# ------------------------------------------------------------------------------
+install(
+  TARGETS fdir_manager_component fdir_manager_node
+  ARCHIVE DESTINATION lib
+  LIBRARY DESTINATION lib
+  RUNTIME DESTINATION lib/${PROJECT_NAME}
+)
+
+install(
+  DIRECTORY   include/
+  DESTINATION include
+)
 
 # Install configuration, launch, map, and script directories
 install(
-  DIRECTORY launch configs maps scripts
+  DIRECTORY launch configs maps
   DESTINATION share/${PROJECT_NAME}
 )
 
-# Install Python executable scripts (enables 'ros2 run mona_core fdir_manager.py')
-install(
-  PROGRAMS scripts/fdir_manager.py
-  DESTINATION lib/${PROJECT_NAME}
-)
+# ------------------------------------------------------------------------------
+# 3. Testing and Linting
+# ------------------------------------------------------------------------------
+if(BUILD_TESTING)
+  # Use manual package discovery for linters (instead of ament_lint_auto)
+  # to guarantee strict compliance with enterprise QA standards.
+  find_package(ament_cmake_gtest      REQUIRED)
+  find_package(ament_cmake_cppcheck   REQUIRED)
+  find_package(ament_cmake_cpplint    REQUIRED)
+  find_package(ament_cmake_uncrustify REQUIRED)
+  find_package(ament_cmake_xmllint    REQUIRED)
+  find_package(ament_cmake_lint_cmake REQUIRED)
+  find_package(ament_cmake_copyright  REQUIRED)
+  find_package(ament_cmake_flake8     REQUIRED)
+
+  # Build GTest suite
+  set(TEST_DEPS
+    rclcpp
+    rclcpp_lifecycle
+    lifecycle_msgs
+    std_msgs
+    mona_msgs
+  )
+
+  ament_add_gtest(test_fdir_manager test/test_fdir_manager.cpp)
+  target_link_libraries(test_fdir_manager fdir_manager_component)
+  ament_target_dependencies(test_fdir_manager ${TEST_DEPS})
+
+  # Execute Linters
+  # C++ static analysis and style formatting
+  ament_cppcheck()
+  ament_cpplint()
+  ament_uncrustify(CONFIG_FILE "${CMAKE_CURRENT_SOURCE_DIR}/../../configs/uncrustify.cfg")
+
+  # Copyright verification
+  ament_copyright()
+
+  # Python linter with custom configuration
+  ament_flake8(CONFIG_FILE "${CMAKE_CURRENT_SOURCE_DIR}/../../configs/setup.cfg")
+
+  # XML syntax validation (package, launch, xacro)
+  ament_xmllint()
+
+  # CMake syntax formatting
+  ament_lint_cmake()
+endif()
 
 ament_package()
