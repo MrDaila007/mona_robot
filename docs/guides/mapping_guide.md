@@ -8,11 +8,7 @@
 
 Ensure your workspace is fully built before initiating the mapping sequence. To prevent DDS cross-talk during mapping, ensure you operate within an isolated local network.
 ```bash
-# Terminal 1: Launch the global simulation infrastructure
-./scripts/start_world.bash
-
-# Terminal 2: Spawn a single mapping agent with gamepad support enabled
-./scripts/start_1_robot.bash
+./scripts/bringup_1_robot.bash
 ```
 
 ---

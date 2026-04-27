@@ -16,18 +16,19 @@
 
 ## 2. Core Functional Domains
 
-### 2.1. Safety and FDIR (System Core)
+### 2.1. Safety, FDIR, and Fate Isolation (System Core)
 
-Responsible for hardware safety, fault monitoring, and final command validation.
+To guarantee strict adherence to functional safety principles, the monolithic component container has been deprecated. The architecture now employs **Fate Isolation**, distributing node lifecycles across independent OS-level executors. This ensures that a fatal segmentation fault in expendable algorithmic layers cannot compromise the primary safety watchdog.
+
 * **Nodes:**
-  * `/safety_node` (C++ Component, `mona_safety`): The hardware sentinel. It clamps velocities during degraded states, escalates anomalies detected via odometry, and physically opens hardware contactors during an E-STOP.
-  * `/mona_fdir_manager` (Python, `mona_core`): The Fault Tolerance Manager. A global observer monitoring the health of all nodes within the agent's namespace. It tracks the "heartbeat" of C++ components and commands soft or hard reboots.
+  * `/mona_fdir_manager` (C++ Component, `mona_core`): The deterministic 10 Hz Lifecycle Manager (System Watchdog). It evaluates system health via non-blocking availability checks, executes the 3-Strikes hardware recovery protocol, and enforces Zero Velocity Overrides. Runs within the `isolated_fdir_executor`.
+  * `/safety_node` (C++ Component, `mona_safety`): The hardware sentinel. It clamps velocities during degraded states, escalates anomalies detected via odometry, and physically opens hardware contactors during an E-STOP. Runs within the `isolated_safety_executor`.
 * **Key Topics:**
-  * `/system/health_state` (`std_msgs/String`): The current system health level determined by FDIR (e.g., `NORMAL`, `DEGRADED`, `EMERGENCY`).
-  * `/robot_status` (`std_msgs/String`): The final global robot status aggregated by the safety node.
-  * `/hardware/contactor_cmd` (`std_msgs/Bool`): Command to physically close or open the motor power relays.
+  * `/system/health_state` (`mona_msgs/FdirState`): The current system health level broadcasted by FDIR (e.g., `NORMAL`, `DEGRADED`, `PROTECTIVE_STOP`, `EMERGENCY`).
+  * `/hardware/contactor_cmd` (`std_msgs/Bool`): The commanded state of the physical motor power relays.
+  * `/hardware/motor_cmd` (`geometry_msgs/Twist`): The final velocity vector authorized by the safety gate.
 * **Services:**
-  * `/emergency_stop` (`std_srvs/Trigger`): Triggers a hard Level 2 E-STOP.
+  * `/emergency_stop` (`std_srvs/Trigger`): Manually triggers a hard Level 2 E-STOP.
 
 ### 2.2. Control and Multiplexing
 
@@ -90,24 +91,24 @@ You can debug the robot's logic and simulate hardware behaviors directly from th
 
 ### 3.1. FDIR and Safety State Injection
 
-The `fdir_manager` continuously broadcasts the system status to `/system/health_state`. You can hijack this topic to force the robot into different operational modes.
+The FDIR Manager continuously broadcasts the system health to the `/system/health_state` topic. While FDIR overrides external manual injection in production, during isolated debugging, you can observe the system's reaction to state escalations.
 
-**Testing Degradation (Slow Mode):**
-If a non-critical sensor fails, FDIR transmits `DEGRADED`. The robot should immediately cap its maximum velocity.
+**Testing Degradation (Auxiliary Node Failure):**
+If a non-critical sensor fails, FDIR transmits `STATE_DEGRADED` (ID: 1). The robot should immediately cap its maximum velocity.
 ```bash
-ros2 topic pub --once /mona_001/system/health_state std_msgs/msg/String "{data: 'DEGRADED'}"
+ros2 topic pub --once /mona_001/system/health_state mona_msgs/msg/FdirState "{state: 1}"
 ```
 
-**Testing E-STOP (Motor De-energization):**
-Simulate a critical failure or a physical red button press.
+**Testing E-STOP & Zero Velocity Override (Fatal Failure):**
+Simulate a critical node crash or a physical red button press (STATE_EMERGENCY, ID: 3).
 ```bash
-ros2 topic pub --once /mona_001/system/health_state std_msgs/msg/String "{data: 'EMERGENCY'}"
+ros2 topic pub --once /mona_001/system/health_state mona_msgs/msg/FdirState "{state: 3}"
 ```
-_Expected Result:_ The robot will halt instantly. The terminal will print `HARDWARE CONTACTOR CUTOFF!`, and Nav2 commands will be strictly blocked.
+_Expected Result:_ FDIR instantly seizes the control pipeline and publishes a Zero Velocity Override. The `safety_node` halts all operations and the terminal logs `HARDWARE: Contactors OPENED. Motors DEAD.`
 
 **Restoring Operation:**
 ```bash
-ros2 topic pub --once /mona_001/system/health_state std_msgs/msg/String "{data: 'NORMAL'}"
+ros2 topic pub --once /mona_001/system/health_state mona_msgs/msg/FdirState "{state: 0}"
 ```
 
 ### 3.2. Lifecycle Management

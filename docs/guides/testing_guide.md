@@ -8,14 +8,15 @@
 
 Before opening a Pull Request, every developer is required to run the local Continuous Integration script. This script acts as a gatekeeper, running all static analyzers and unit tests within the isolated Docker environment.
 
-**Execution:**
+**Execution variant a:**
 ```bash
-# Attach to the development container
-docker compose up -d dev
-docker compose exec dev bash
-
-# Execute the local CI pipeline
-./scripts/local_ci.bash
+./scripts/format_code.bash
+./scripts/run_ci_checks.bash
+```
+**Execution variant b:**
+```bash
+make format
+make ci
 ```
 
 > [!NOTE]
@@ -56,13 +57,13 @@ colcon test --packages-select mona_safety --event-handlers console_direct+
 
 ---
 
-## 3. Python Testing (Pytest)
+## 3. FDIR and Safety Lifecycle Testing
 
-Python modules, particularly the `fdir_manager.py`, utilize the standard `pytest` framework integrated with `ament_python`.
+The core FDIR Manager and Safety logic have been migrated to deterministic C++ Lifecycle components. Testing these modules requires verifying their Finite State Machine (FSM) transitions and hardware overrides (e.g., Zero Velocity Override).
 
-To execute tests specifically for Python core utilities:
+To execute tests specifically for the safety core utilities with verbose output:
 ```bash
-colcon test --packages-select mona_core --pytest-args -v
+colcon test --packages-select mona_core mona_safety --event-handlers console_direct+
 ```
 
 ---

@@ -75,7 +75,7 @@ Open **Terminal 2** to deploy the swarm (specify the desired number of agents):
 
 Alternatively, for single-robot testing with gamepad teleoperation enabled:
 ```bash
-./scripts/start_1_robot.bash
+./scripts/bringup_1_robot.bash
 ```
 
 ---
@@ -90,8 +90,8 @@ make up
 make up-gpu
 
 # Attach to the container's bash shell
-docker compose exec dev bash
+docker compose exec -it dev bash
 
 # Inside the container, run the automated CI pipeline
-./scripts/local_ci.bash
+./scripts/run_ci_checks.bash
 ```
