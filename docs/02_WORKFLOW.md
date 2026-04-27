@@ -33,11 +33,30 @@ source install/setup.bash
 
 ---
 
-## 3. Pre-Commit Validation
-Before opening a Pull Request, you must execute the continuous integration script locally. This script runs Uncrustify, Clang-Tidy, and evaluates the C++ Google Test suites:
+## 3. Continuous Integration (Local CI Quality Gate)
+
+Before submitting a Pull Request, all code must pass the stringent local Continuous Integration (CI) pipeline.
+This guarantees conformity to our memory safety standards and FSM lifecycle contracts.
+
+Execute the unified quality gate directly from the host machine utilizing the root Makefile:
 ```bash
-./scripts/local_ci.bash
+# Formats code (Black, Uncrustify) and runs Flake8, Cppcheck, Cpplint, and GTest suites
+make format
+
+make ci
 ```
+
+Alternatively, invoke the validation script directly within the active development container:
+```bash
+docker compose exec -it dev bash
+
+./scripts/format_code.bash
+
+./scripts/run_ci_checks.bash
+```
+
+> [!WARNING]
+> Bypassing the local CI gate will result in an automated rejection of your Pull Request by the GitHub Actions pipeline. Ensure tests successfully passing locally.
 
 ---
 

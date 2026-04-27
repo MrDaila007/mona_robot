@@ -20,14 +20,14 @@ Within its microservice architecture, MONA functions as an Edge Agent in the dis
 [![MONA Robot Demonstration](https://img.youtube.com/vi/lFO3V1oQM2w/maxresdefault.jpg)](https://www.youtube.com/watch?v=lFO3V1oQM2w)
 
 ## Key Architectural Features
-* **Industrial Safety (ISO 13849-1 / IEC 61508):** Hybrid FDIR (Fault Detection, Isolation, and Recovery) architecture. Includes hardware redundancy for contactor cutoff circuits, Watchdog timers, and EMA (Exponential Moving Average) smoothing for heavy chassis peak loads during teleoperation.
+* **Industrial Safety (ISO 13849-1 / IEC 61508):** Hybrid FDIR (Fault Detection, Isolation, and Recovery) architecture. Includes **Fate Isolation** (independent OS processes), **Zero Velocity Override**, hardware redundancy for contactor cutoff circuits, Watchdog timers, and EMA (Exponential Moving Average) smoothing for heavy chassis peak loads during teleoperation.
 * **Network Stack and DDS:** Direct host network access (`network_mode: host`) with flexible visibility control (`ROS_LOCALHOST_ONLY`) and strict DDS implementation enforcement (`rmw_fastrtps_cpp`).
 * **Fleet Management Ready:** The architecture lays the foundation for future integration with VDA 5050 and Open-RMF fleet management standards (LISA).
 * **Strict CI/CD:** Comprehensive code coverage utilizing static analyzers (Clang-Tidy, CPPCheck, Uncrustify, Black, Flake8) and unit testing (GTest).
 
 ## Component Architecture
 The project is built upon the ROS 2 component architecture (Zero-copy IPC), divided into the following logical domains:
-* **`mona_core/`** — Main orchestrator package (Bringup). Contains unified `.launch.py` files, global parameters (`.yaml`), maps, and FDIR Lifecycle Manager.
+* **`mona_core/`** — Main orchestrator package (Bringup). Contains unified `.launch.py` files, global parameters (`.yaml`), maps, and the deterministic **C++ FDIR Lifecycle Manager**.
 * **`mona_description/`** — Visual and physical robot representation (URDF, Xacro, 3D meshes).
 * **`mona_safety/`** — Hardware sentinel (`SafetyNode`). Handles Emergency Stops (E-Stop), controls hardware contactors, limits velocities during system degradation, and escalates faults upon unauthorized movement via odometry validation.
 * **`mona_control/`** — Dispatch module (Twist Mux). Responsible for routing commands from the gamepad and Nav2, EMA smoothing, velocity interpolation at 100 Hz, and preempting autonomous tasks during manual overrides.
@@ -50,7 +50,7 @@ The system supports multiple operational modes depending on your objective, util
 #### Mode 1: Full Visualization (Single Robot & Physics Debugging)
 Used for verifying collisions in Gazebo, wheel physics, and sensor outputs with full GUI support and gamepad teleoperation.
 ```bash
-./scripts/start_1_robot.bash
+./scripts/bringup_1_robot.bash
 ```
 
 #### Mode 2: Swarm Load Testing (Headless Infrastructure)
@@ -67,14 +67,33 @@ Used for testing the DDS network, fleet planners, and telemetry via Foxglove Stu
 ```
 
 #### Development Environment & Teardown
-For manual package compilation (`colcon build`), ROS CLI utilities, and linters, a dedicated development container is provided:
+The project provides a unified `Makefile` for rapid development, but also supports standard Docker Compose workflows for full control.
+**Option A: Makefile Shortcuts (Recommended)**
 ```bash
-# Enter the isolated development environment
-docker compose up -d dev
-docker compose exec dev bash
+# Enter the isolated environment
+make shell
+
+# Execute full CI pipeline (Linters + GTest)
+make ci
+
+# Format all C++/Python source code
+make format
 
 # Gracefully stop all robots, the simulation, and clean up networks
 make down
+```
+
+**Option B: Manual Docker Compose (Classic)**
+```bash
+# Launch the development container
+docker compose up -d dev
+
+# Execute commands within the environment (e.g., CI checks)
+docker compose exec -it dev bash
+./scripts/run_ci_checks.bash
+
+# Gracefully stop all containers and clean up virtual networks
+docker compose down
 ```
 
 ## Launch Arguments

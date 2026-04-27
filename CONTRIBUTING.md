@@ -19,7 +19,7 @@ Adhere to the **Conventional Commits** specification:
 * `docs: update installation instructions`
 
 ## 2. Pull Request (PR) Process
-1. Ensure that the `./scripts/local_ci.bash` script passes successfully within your local development container (`docker compose exec dev bash`).
+1. Ensure that the unified quality gate (`make ci`) passes successfully. Alternatively, run `./scripts/run_ci_checks.bash` within your local `dev` container.
 2. The PR must contain a clear and comprehensive description of the changes.
 3. The PR must be reviewed and approved by at least one other developer (Code Review).
 4. Continuous Integration (GitHub Actions) checks must pass.
@@ -44,6 +44,10 @@ The MONA architecture is designed to comply with strict industrial standards for
 *Standardized interface for AMR fleet communication with the cloud server (based on VDA 5050 principles).*
 * **Code Impact:** Unification of the robot state machine, utilization of dynamically assigned namespaces (`mona_001`, `mona_002`), and MQTT telemetry protocols.
 * **Implementation:** Swarm agents must broadcast isolated telemetry and accept navigation goals from the global LISA planner.
+
+#### 4. Quality Gates & Code Hygiene
+* **Code Language:** Following Open Source best practices, it is highly recommended to write all variables, comments, and logs in English.
+* **Fate Isolation:** Any new fatal/primary nodes must run in isolated OS-level executors (`component_container_mt`) to prevent cascading failures.
 
 ## 4. Fault Tolerance Testing (Software-In-the-Loop)
 **It is strictly prohibited** to leave test flags in production code (e.g., `if (simulate_fault) drop_data()`).

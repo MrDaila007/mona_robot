@@ -28,7 +28,7 @@ By default, gamepad support is explicitly disabled. This ensures compatibility w
 Within our Swarm infrastructure, this is handled automatically by the single-agent testing script:
 
 ```bash
-./scripts/start_1_robot.bash
+./scripts/bringup_1_robot.bash
 ```
 
 If you are launching a custom agent manually via Docker Compose, apply the argument as follows:

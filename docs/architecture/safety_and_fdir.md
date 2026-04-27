@@ -17,11 +17,11 @@ The MONA safety architecture is designed with strict adherence to industrial fun
 
 1. **Control Logic Echelon (`mona_control::TwistMuxNode`):** Operates at 100 Hz. Strictly responsible for routing and priority arbitration (`/cmd_teleop` vs `/cmd_nav`). It includes an asymptotic Exponential Moving Average (EMA) filter to smooth the peak kinetic loads of the heavy chassis during manual teleoperation. Upon gamepad override, this echelon explicitly dispatches a `CancelGoal` request to the Nav2 server.
 2. **Hardware Safety Echelon (`mona_safety::SafetyNode`):** The supreme logical arbiter of the system (100 Hz). It performs no velocity filtering but maintains exclusive, direct access to the hardware contactor relays. It is protected against asynchronous "zombie-callbacks" via atomic state flags. If the agent is in a `PROTECTIVE_STOP` state but physical displacement is detected (via odometry feedback), this node instantly escalates the status to a hardware `EMERGENCY` and physically severs motor power.
-3. **FDIR Manager (`mona_core`, Python):** An asynchronous monitoring loop (5 Hz) acting as the Lifecycle Manager within each agent's isolated namespace (e.g., `/mona_001`). It polls local C++ components (TwistMux, Safety, LidarMerger) via `GetState` services. Upon detecting a freeze, it initiates up to 5 soft recovery attempts (a `Deactivate -> Activate` cycle), after which it triggers a hard power-cycle of the failed subsystem according to the `fdir_policy.yaml` policy.
+3. **FDIR Manager (`mona_core`):** A deterministic, high-frequency Lifecycle Component (10 Hz) acting as the supreme watchdog within each agent's namespace (e.g., `/mona_001`). It monitors local C++ components (TwistMux, Safety, LidarMerger) via non-blocking `service_is_ready` evaluations. Utilizing **Fate Isolation**, components are deployed across three independent OS-level processes (`sensor_control_executor`, `isolated_safety_executor`, `isolated_fdir_executor`). This guarantees that a fatal segmentation fault in expendable perception algorithms cannot terminate the FDIR watchdog. Upon detecting a subsystem freeze, it orchestrates a hard power-cycle recovery sequence governed by the `fdir_policy.yaml`.
 
 ### Hardware Redundancy Diagram
 
-Both controlling nodes possess independent access paths to the hardware contactor relays. If the `safety_node` process suffers a critical software failure (e.g., a `Segfault`), the `fdir_manager` seizes hardware control, continuously broadcasting a cutoff signal via the redundant bus.
+Both controlling nodes possess independent access paths to the hardware contactor relays. If the `safety_node` process suffers a critical software failure (e.g., a `Segfault`), the isolated `fdir_manager` seizes hardware control, continuously broadcasting a cutoff signal and Zero Velocity Override via the redundant bus.
 ```mermaid
 %%{init: {'theme': 'base', 'themeVariables': { 'primaryColor': '#e1f5fe', 'edgeLabelBackground':'#ffffff', 'tertiaryColor': '#fff'}}}%%
 graph TD
@@ -32,7 +32,7 @@ graph TD
     subgraph SW_Layer ["Compute Platform (IPC)"]
         direction LR
         SN[("SafetyNode<br>(C++ | 100Hz)")]
-        FM[("FDIRManager<br>(Python | 5Hz)")]
+        FM[("FDIRManager<br>(C++ | 10Hz)")]
         Watchdog{{"Watchdog Monitor<br>Heartbeat Check"}}
         
         %% Monitoring Links
@@ -55,8 +55,8 @@ graph TD
     %% 1. Primary Path (C++) - Normal operation
     SN ==>|"Cmd: ENABLE"| LogicOr
     
-    %% 2. Redundant Path (Python) - Emergency Override
-    FM ==>|"ESCALATION: Override DISABLE"| LogicOr
+    %% 2. Redundant Path (C++) - Emergency Override
+    FM ==>|"ESCALATION: Zero Velocity & DISABLE"| LogicOr
     
     %% Final logic to driver
     LogicOr --> IOCtrl
@@ -106,11 +106,25 @@ The robot's fallback behavior upon component failure depends strictly on the pre
 
 ## 3. FDIR State Machine (Recovery Process)
 
-When a sensor fails, the `ModuleRecoveryState` automated recovery sequence is initiated. This encompasses an orchestrated progression of ROS 2 lifecycle transitions and, if necessary, a complete hardware power cutoff to drain the component's capacitors before rebooting.
+When a sensor fails, the automated recovery sequence is initiated. To protect mechanical components and prevent infinite reboot loops, the Finite State Machine (FSM) adheres to an industrial **3-Strikes Rule**:
+- **Detection:** If a node fails to report a state within the predefined tolerance (50ms) or transitions to an `ERROR` state, FDIR initiates the recovery sequence.
+- **Recovery Loop (State Edge Logged):**
+    - **WAIT_DISCHARGE:** FDIR signals the hardware to open relays, actively draining the sensor's internal capacitors to ensure a pristine cold boot.
+    - **POWER_ON:** Hardware is re-energized.
+    - **WAIT_BOOT:** FDIR suspends active polling, granting the component sufficient time to initialize and transition to an `ACTIVE` state.
+- **Terminal Fault Escalation:** The system permits a maximum of 3 recovery iterations. If the 3rd attempt is unsuccessful, the node is permanently designated as `DEFECTIVE`. The overarching system escalates into an irreversible **EMERGENCY** state (Lockout), mandating a full manual physical restart by an operator.
 
 ---
 
-## 4. Stop Categories
+## 4. Zero Velocity Override Mechanism
+
+To preempt "Runaway Robot" scenarios - where a perception or control node might crash while a non-zero velocity command remains latched in the hardware bridge - the FDIR Manager incorporates a secondary failsafe known as **Zero Velocity Override**.
+- Upon the escalation of the global state to `STATE_EMERGENCY` (due to a component `TERMINAL FAULT` or communication severance), the isolated FDIR process intercepts the command pipeline.
+- It unconditionally and continuously publishes a `Twist` message populated with zero-values directly to the hardware bridge, overriding any latent trajectories and guaranteeing immediate deceleration regardless of the `TwistMux` state.
+
+---
+
+## 5. Stop Categories
 
 The architecture distinguishes between two fundamental halt types:
 1. **Soft Stop (Protective Stop)**
@@ -118,15 +132,15 @@ The architecture distinguishes between two fundamental halt types:
     - Contactors **REMAIN ENERGIZED**.
     - Motors operate in Active Braking mode (holding position torque) to prevent the chassis from rolling down inclines.
 2. **Hard Stop (Emergency Stop)**
-    - Triggered by software faults (FATAL node Segfault), physical displacement during a Protective Stop (Hardware Feedback mismatch), or a manual physical E-STOP button press.
+    - Triggered by software faults (FATAL node Segfault), Terminal Faults (exhaustion of the 3-Strikes recovery), physical displacement during a Protective Stop (Hardware Feedback mismatch), or a manual physical E-STOP button press.
     - Contactors are **OPENED (DE-ENERGIZED)**.
     - Power to the motor bridge drivers is severed, and physical mechanical brakes are engaged.
 
 ---
 
-## 5. State Variables Architecture (Functional Safety Domains)
+## 6. State Variables Architecture (Functional Safety Domains)
 
-To comply with industrial safety standards (ISO 13849 / SIL), the control software is partitioned into isolated operational domains (Pattern: _Input -> Processing -> Output -> Infrastructure_). Every state variable is strictly bound to its respective domain, eliminating Race Conditions and logical collisions in the multi-threaded `component_container_mt` environment.
+To comply with industrial safety standards (ISO 13849 / SIL), the control software is partitioned into isolated operational domains (Pattern: _Input -> Processing -> Output -> Infrastructure_). Every state variable is strictly bound to its respective domain, eliminating Race Conditions and logical collisions across the multi-process, Fate-Isolated environment.
 
 All flags below are implemented as `std::atomic<bool>` to guarantee thread safety.
 - **`hardware_button_pressed_` (Sensor / Input Domain)**
