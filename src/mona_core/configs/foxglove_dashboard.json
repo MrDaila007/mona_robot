@@ -3,13 +3,13 @@
     "3D!1": {
       "cameraState": {
         "perspective": true,
-        "distance": 986.3612304649016,
-        "phi": 56.35525182515308,
-        "thetaOffset": 138.06747841726127,
+        "distance": 999.9999999999862,
+        "phi": 60.000000000000355,
+        "thetaOffset": 134.9999999999999,
         "targetOffset": [
-          0.2524235070293059,
-          -0.3693618451407344,
-          6.519838740841009e-17
+          0.28784685039883223,
+          -0.03374889846019255,
+          4.806353749205126e-17
         ],
         "target": [
           0,
@@ -22,9 +22,10 @@
           0,
           1
         ],
-        "fovy": 0.78,
+        "fovy": 1,
         "near": 0.5,
-        "far": 5000
+        "far": 5000,
+        "logDepth": false
       },
       "topics": {
         "/$robot_id/lidar_front/scan": {
@@ -279,7 +280,8 @@
       },
       "imageMode": {},
       "fixedFrame": "mona_001/base_footprint",
-      "synchronize": false
+      "synchronize": false,
+      "foxglovePanelTitle": ""
     },
     "RosOut!1d6hnky": {
       "minLogLevel": 1,
@@ -340,7 +342,8 @@
     },
     "RawMessages!250uq96": {
       "topicPath": "/mona_001/system/safety_state",
-      "defaultExpanded": false
+      "defaultExpanded": false,
+      "fontSize": 12
     },
     "RawMessages!137g2gr": {
       "defaultExpanded": false,
@@ -356,7 +359,10 @@
       "layout": "vertical",
       "timeoutSeconds": 10,
       "editingMode": false,
-      "serviceName": "/mona_001/emergency_stop"
+      "serviceName": "/mona_001/emergency_stop",
+      "foxglovePanelTitle": "",
+      "buttonText": "Call E-STOP",
+      "buttonTooltip": ""
     },
     "CallService!Reset": {
       "service": "/emergency_stop_reset",
@@ -364,7 +370,8 @@
       "layout": "vertical",
       "timeoutSeconds": 10,
       "editingMode": false,
-      "serviceName": "/mona_001/emergency_stop_reset"
+      "serviceName": "/mona_001/emergency_stop_reset",
+      "buttonText": "Restore E-STOP"
     },
     "Parameters!kvpas8": {},
     "Plot!urq9o1": {
@@ -517,14 +524,14 @@
               "direction": "column"
             },
             "direction": "row",
-            "splitPercentage": 61.372549019607824
+            "splitPercentage": 78.22580645161288
           },
           "second": "Parameters!kvpas8",
           "direction": "column",
           "splitPercentage": 59.90639625585024
         },
         "direction": "row",
-        "splitPercentage": 48.170731707317096
+        "splitPercentage": 51.562499999999986
       },
       "second": {
         "first": "Plot!urq9o1",
@@ -541,7 +548,7 @@
       "splitPercentage": 50
     },
     "direction": "row",
-    "splitPercentage": 48.80332986472424
+    "splitPercentage": 46.72216441207076
   },
   "globalVariables": {
     "robot_id": "mona_001"

@@ -54,10 +54,10 @@ The MONA architecture is designed to comply with strict industrial standards for
 FDIR testing (Fault Injection) must be performed using standard OS tools and ROS 2 Lifecycle transitions.
 ```bash
 # Simulate sensor freeze (transition to Inactive)
-ros2 lifecycle set /mona_lidar_merger deactivate
+ros2 lifecycle set /mona_001/mona_lidar_merger deactivate
 
 # Simulate fatal process crash (Segfault)
-ros2 lifecycle set /safety_node shutdown
+ros2 lifecycle set /mona_001/safety_node shutdown
 ```
 After executing the command, you should observe the FDIR activation process in the logs, including hardware contactor cutoffs and automatic recovery attempts.
 
