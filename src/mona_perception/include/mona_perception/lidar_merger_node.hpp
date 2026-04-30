@@ -70,9 +70,9 @@ private:
         const sensor_msgs::msg::PointCloud2 &add);
 
     // State variables
-    bool has_power_ = true;
-    std::string target_frame_;
-    double transform_timeout_;
+    bool has_power_{true};
+    std::string target_frame_{};
+    double transform_timeout_{0.0};
     rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr power_sub_;
 
     // TF and projections
