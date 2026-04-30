@@ -75,19 +75,19 @@ private:
     /** @brief   Structure to track the lifecycle and health of a managed node. */
     struct ManagedNode {
         std::string name;
-        Tier tier;
-        int retry_count;
-        uint8_t current_state;
+        Tier tier{Tier::FATAL};
+        int retry_count{0};
+        uint8_t current_state{255};  // 255 - Unconfigured/Unknown
 
         // Finite State Machine context
-        RecoveryPhase phase = RecoveryPhase::NOMINAL;
+        RecoveryPhase phase{RecoveryPhase::NOMINAL};
         rclcpp::Time last_phase_change;
-        bool is_defective = false;
+        bool is_defective{false};
 
         // Configuration parameters from fdir_policy.yaml
-        double startup_time;
-        double power_off_time;
-        ResetMechanism reset_mechanism;
+        double startup_time{0.0};
+        double power_off_time{0.0};
+        ResetMechanism reset_mechanism{ResetMechanism::LIFECYCLE_SERVICE};
         std::string reset_topic;
     };
 

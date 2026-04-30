@@ -33,7 +33,7 @@
 namespace mona_core
 {
 /**
- * @brief   Construct a new Fdir Manager Node object.
+ * @brief   Construct a new FDIR Manager Node object.
  *          Initializes QoS profiles, ROS 2 communication interfaces, and
  *          sets up the deterministic high-frequency safety monitoring loop.
  * @param   options - ROS 2 Node options
@@ -43,6 +43,12 @@ FdirManagerNode::FdirManagerNode(const rclcpp::NodeOptions &options)
     // Initialize Reentrant group to prevent deadlocks during blocking service calls
     callback_group_ = this->create_callback_group(rclcpp::CallbackGroupType::Reentrant);
 
+    // Initialize deterministic safety monitoring loop (10 Hz = 100 ms)
+    monitor_timer_ = this->create_wall_timer(
+        std::chrono::milliseconds(100),
+        std::bind(&FdirManagerNode::monitor_loop, this),
+        callback_group_);
+
     // QoS: Reliable + Transient Local for safety-critical state broadcast
     rclcpp::QoS qos_profile(10);
     qos_profile.reliable();
@@ -50,10 +56,6 @@ FdirManagerNode::FdirManagerNode(const rclcpp::NodeOptions &options)
 
     health_state_pub_ = this->create_publisher<mona_msgs::msg::FdirState>(
         "system/health_state", qos_profile);
-
-    // Emergency Hardware Actuation
-    contactor_pub_ = this->create_publisher<std_msgs::msg::Bool>(
-        "hardware/contactors", 10);
 
     // Initialize Hardware Watchdog Heartbeat
     // Using Best Effort QoS to minimize latency; dropped packets are treated as faults by PLC.
@@ -63,17 +65,15 @@ FdirManagerNode::FdirManagerNode(const rclcpp::NodeOptions &options)
     heartbeat_pub_ = this->create_publisher<std_msgs::msg::Bool>(
         "hardware/fdir_heartbeat", heartbeat_qos);
 
+    // Emergency Hardware Actuation
+    contactor_pub_ = this->create_publisher<std_msgs::msg::Bool>(
+        "hardware/contactors", 10);
+
     cmd_vel_override_pub_ = this->create_publisher<geometry_msgs::msg::Twist>(
         "hardware/motor_cmd", 10);
 
     // Parse configurations and provision dynamic interfaces
     init_managed_nodes();
-
-    // Initialize deterministic safety monitoring loop (10 Hz = 100 ms)
-    monitor_timer_ = this->create_wall_timer(
-        std::chrono::milliseconds(100),
-        std::bind(&FdirManagerNode::monitor_loop, this),
-        callback_group_);
 
     RCLCPP_INFO(this->get_logger(), "FDIR Manager initialized.");
 }
@@ -156,7 +156,8 @@ void FdirManagerNode::init_managed_nodes() {
         } else {
             RCLCPP_FATAL(
                 this->get_logger(),
-                "[FDIR] CONFIGURATION FAULT: Unknown tier '%s' for '%s'. Validation failed.",
+                "[FDIR] CONFIGURATION FAULT: Unknown tier '%s' for '%s'. "
+                "Validation failed.",
                 tier_str.c_str(), node_name.c_str());
             throw std::runtime_error("Invalid safety tier configuration.");
         }
@@ -173,7 +174,7 @@ void FdirManagerNode::init_managed_nodes() {
             RCLCPP_FATAL(
                 this->get_logger(),
                 "[FDIR] CONFIGURATION FAULT: Unknown reset_mechanism '%s' for '%s'. "
-                "Strict validation failed.",
+                "Validation failed.",
                 mech_str.c_str(), node_name.c_str());
             throw std::runtime_error("Invalid reset_mechanism configuration.");
         }
@@ -193,7 +194,6 @@ void FdirManagerNode::init_managed_nodes() {
         }
 
         // INFRASTRUCTURE PROVISIONING
-
         // 1. Initialize ManagedNode structure
         managed_nodes_[node_name] = {
             node_name, tier, 0,
@@ -362,9 +362,9 @@ bool FdirManagerNode::change_node_state(const std::string &node_name, uint8_t tr
 
 /**
  * @brief   Core 10 Hz control loop evaluating system health and orchestrating recovery.
- * Implements a pessimistic start pattern and escalates failures based on tier levels.
- * This deterministic cycle ensures high-frequency monitoring and autonomous
- * restoration of lifecycle-managed components.
+ *          Implements a pessimistic start pattern and escalates failures based on tier levels.
+ *          This deterministic cycle ensures high-frequency monitoring and autonomous
+ *          restoration of lifecycle-managed components.
  */
 void FdirManagerNode::monitor_loop() {
     // Pessimistic initialization: assume startup phase until proven otherwise
@@ -425,7 +425,8 @@ void FdirManagerNode::monitor_loop() {
 
                 RCLCPP_INFO(
                     this->get_logger(),
-                    "[FDIR] Component '%s' is UNCONFIGURED. Triggering 'configure' transition...",
+                    "[FDIR] Component '%s' is UNCONFIGURED. "
+                    "Triggering 'configure' transition...",
                     name.c_str());
                 break;
 
@@ -440,7 +441,8 @@ void FdirManagerNode::monitor_loop() {
 
                 RCLCPP_INFO(
                     this->get_logger(),
-                    "[FDIR] Component '%s' is INACTIVE. Triggering 'activate' transition...",
+                    "[FDIR] Component '%s' is INACTIVE. "
+                    "Triggering 'activate' transition...",
                     name.c_str());
                 break;
 

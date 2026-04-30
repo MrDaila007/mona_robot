@@ -93,12 +93,12 @@ private:
     std::atomic<bool> is_fdir_blocked_{false};
     std::atomic<bool> is_estop_blocked_{false};
 
-    double manual_timeout_;
-    double cmd_timeout_;
-    double ema_alpha_;
+    double manual_timeout_{0.0};
+    double cmd_timeout_{0.0};
+    double ema_alpha_{0.0};
 
-    double max_speed_normal_;
-    double max_speed_degraded_;
+    double max_speed_normal_{0.0};
+    double max_speed_degraded_{0.0};
     std::atomic<bool> is_degraded_{false};
     std::atomic<bool> is_shutting_down_{false};
 };

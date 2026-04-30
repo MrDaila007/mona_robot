@@ -55,6 +55,7 @@ CallbackReturn TwistMuxNode::on_configure(const rclcpp_lifecycle::State &) {
     max_speed_normal_   = this->get_parameter("max_speed_normal").as_double();
     max_speed_degraded_ = this->get_parameter("max_speed_degraded").as_double();
 
+    // Initialize Reentrant group to prevent deadlocks during blocking service calls
     auto callback_group = this->create_callback_group(rclcpp::CallbackGroupType::Reentrant);
     rclcpp::SubscriptionOptions sub_opts;
     sub_opts.callback_group = callback_group;
@@ -103,9 +104,12 @@ CallbackReturn TwistMuxNode::on_activate(const rclcpp_lifecycle::State &) {
     smooth_pub_->on_activate();
     state_pub_->on_activate();
 
-    last_teleop_time_ = this->now();
-    last_nav_time_    = this->now();
-    current_state_    = TwistMuxState::IDLE;
+    // Initialize timestamps in the past to prevent artificial lockouts during cold boot
+    rclcpp::Time past_time = this->now() - rclcpp::Duration::from_seconds(manual_timeout_ + 1.0);
+    last_teleop_time_      = past_time;
+    last_nav_time_         = past_time;
+
+    current_state_ = TwistMuxState::IDLE;
 
     RCLCPP_INFO(get_logger(), "TwistMux ACTIVE.");
     return CallbackReturn::SUCCESS;
@@ -145,15 +149,20 @@ void TwistMuxNode::publish_state(TwistMuxState state) {
     mona_msgs::msg::TwistMuxState msg;
 
     switch (state) {
-        case TwistMuxState::IDLE:       msg.current_state = mona_msgs::msg::TwistMuxState::IDLE;
+        case TwistMuxState::IDLE:
+            msg.current_state = mona_msgs::msg::TwistMuxState::IDLE;
             break;
-        case TwistMuxState::MANUAL:     msg.current_state = mona_msgs::msg::TwistMuxState::MANUAL;
+        case TwistMuxState::MANUAL:
+            msg.current_state = mona_msgs::msg::TwistMuxState::MANUAL;
             break;
-        case TwistMuxState::AUTONOMOUS: msg.current_state =
-                mona_msgs::msg::TwistMuxState::AUTONOMOUS; break;
-        case TwistMuxState::BLOCKED:    msg.current_state =
-                mona_msgs::msg::TwistMuxState::BLOCKED_BY_SAFETY; break;
-        default:                        msg.current_state = mona_msgs::msg::TwistMuxState::IDLE;
+        case TwistMuxState::AUTONOMOUS:
+            msg.current_state = mona_msgs::msg::TwistMuxState::AUTONOMOUS;
+            break;
+        case TwistMuxState::BLOCKED:
+            msg.current_state = mona_msgs::msg::TwistMuxState::BLOCKED_BY_SAFETY;
+            break;
+        default:
+            msg.current_state = mona_msgs::msg::TwistMuxState::BLOCKED_BY_SAFETY;
             break;
     }
 
@@ -172,13 +181,13 @@ void TwistMuxNode::fdir_state_callback(const mona_msgs::msg::FdirState::SharedPt
         msg->current_state == mona_msgs::msg::FdirState::STATE_PROTECTIVE_STOP ||
         msg->current_state == mona_msgs::msg::FdirState::STATE_RECONFIGURED);
 
-    is_safety_blocked_ = is_fdir_blocked_ || is_estop_blocked_;
+    is_safety_blocked_ = (is_fdir_blocked_ || is_estop_blocked_);
 }
 
 // Callback to monitor explicit hardware E-STOP triggers from the safety node
 void TwistMuxNode::safety_state_callback(const mona_msgs::msg::SafetyState::SharedPtr msg) {
     is_estop_blocked_  = (msg->current_state == mona_msgs::msg::SafetyState::EMERGENCY);
-    is_safety_blocked_ = is_fdir_blocked_ || is_estop_blocked_;
+    is_safety_blocked_ = (is_fdir_blocked_ || is_estop_blocked_);
 }
 
 void TwistMuxNode::teleop_callback(const geometry_msgs::msg::Twist::SharedPtr msg) {
@@ -216,7 +225,7 @@ void TwistMuxNode::nav_callback(const geometry_msgs::msg::Twist::SharedPtr msg) 
     last_nav_time_ = this->now();
 
     // Block navigation commands if the teleop interface was recently active
-    if ((this->now() - last_teleop_time_).seconds() < manual_timeout_) {return;}
+    if (((this->now() - last_teleop_time_).seconds()) < manual_timeout_) {return;}
 
     current_state_ = TwistMuxState::AUTONOMOUS;
     last_nav_msg_  = *msg;
@@ -226,7 +235,7 @@ void TwistMuxNode::control_loop() {
     if (!smooth_pub_->is_activated()) {return;}
 
     std::lock_guard<std::mutex> lock(mux_mutex_);
-    auto   now = this->now();
+    auto   now               = this->now();
     double time_since_teleop = (now - last_teleop_time_).seconds();
     double time_since_nav    = (now - last_nav_time_).seconds();
 
@@ -238,10 +247,18 @@ void TwistMuxNode::control_loop() {
         current_state_ = TwistMuxState::IDLE;
         target_vel_    = geometry_msgs::msg::Twist();
     } else {
+        // Active control state routing
         if (current_state_ == TwistMuxState::MANUAL) {
             target_vel_ = last_teleop_msg_;
         } else if (current_state_ == TwistMuxState::AUTONOMOUS) {
             target_vel_ = last_nav_msg_;
+        } else {
+            // FATAL FAULT: State machine corrupted.
+            // Throwing an exception to trigger FDIR Hardware Recovery and Zero Velocity Override.
+            RCLCPP_FATAL(
+                get_logger(),
+                "CRITICAL: Undefined TwistMux state! Committing suicide to trigger FDIR.");
+            throw std::runtime_error("TwistMuxNode: Undefined state machine state detected.");
         }
     }
 
