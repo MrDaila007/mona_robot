@@ -98,16 +98,16 @@ private:
     diagnostic_updater::Updater diagnostic_updater_;
 
     // Default safe state on initialization
-    SafetyState current_state_ = SafetyState::PROTECTIVE_STOP;
-    uint8_t last_fdir_state_   = 255;       // 255 as an invalid initial state
-    uint8_t last_mux_state_    = mona_msgs::msg::TwistMuxState::IDLE;
+    SafetyState current_state_{SafetyState::PROTECTIVE_STOP};
+    uint8_t last_fdir_state_{255};  // 255 as an invalid initial state
+    uint8_t last_mux_state_{mona_msgs::msg::TwistMuxState::IDLE};
 
     std::atomic<bool> e_stop_active_{false};
     std::atomic<bool> is_processing_allowed_{false};
-    bool hardware_contactors_closed_ = false;
+    bool hardware_contactors_closed_{false};
 
-    double max_speed_normal_;
-    double max_speed_degraded_;
+    double max_speed_normal_{0.0};
+    double max_speed_degraded_{0.0};
 };
 }  // namespace mona_safety
 

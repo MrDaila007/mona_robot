@@ -69,6 +69,7 @@ CallbackReturn SafetyNode::on_configure(const rclcpp_lifecycle::State &) {
     max_speed_normal_   = this->get_parameter("max_speed_normal").as_double();
     max_speed_degraded_ = this->get_parameter("max_speed_degraded").as_double();
 
+    // Initialize Reentrant group to prevent deadlocks during blocking service calls
     auto callback_group = this->create_callback_group(rclcpp::CallbackGroupType::Reentrant);
     rclcpp::SubscriptionOptions sub_opts;
     sub_opts.callback_group = callback_group;

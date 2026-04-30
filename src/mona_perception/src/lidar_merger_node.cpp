@@ -24,10 +24,7 @@
 namespace mona_perception
 {
 LidarMergerNode::LidarMergerNode(const rclcpp::NodeOptions &options)
-    : rclcpp_lifecycle::
-      LifecycleNode(
-          "mona_lidar_merger",
-          options) {}
+    : rclcpp_lifecycle::LifecycleNode("mona_lidar_merger", options) {}
 
 LidarMergerNode::~LidarMergerNode() {
     // CRITICAL FAULT MITIGATION: Terminate the message_filters synchronizer and TF listener.
@@ -73,10 +70,12 @@ CallbackReturn LidarMergerNode::on_configure(const rclcpp_lifecycle::State &) {
     // Configure QoS for compatibility with LiDAR drivers (Best Effort)
     rmw_qos_profile_t custom_qos = rmw_qos_profile_sensor_data;
 
+    // --- PUBLISHERS --- //
     // Create Lifecycle Publisher
     publisher_ = this->create_publisher<sensor_msgs::msg::PointCloud2>(
         "perception/combined_cloud", 10);
 
+    // --- SUBSCRIPTIONS --- //
     power_sub_ = this->create_subscription<std_msgs::msg::Bool>(
         "hardware/power/perception_pc", 10,
         std::bind(&LidarMergerNode::power_callback, this, std::placeholders::_1)
@@ -107,8 +106,7 @@ CallbackReturn LidarMergerNode::on_configure(const rclcpp_lifecycle::State &) {
 }
 
 // 2. ACTIVATE: Enable publisher
-CallbackReturn LidarMergerNode::on_activate(const rclcpp_lifecycle::State &state) {
-    (void)state;  // Suppress unused parameter warning
+CallbackReturn LidarMergerNode::on_activate(const rclcpp_lifecycle::State &) {
     RCLCPP_INFO(get_logger(), "Activating Lidar Merger Component...");
 
     // Lifecycle publishers are muted by default. They must be explicitly activated.
@@ -118,8 +116,7 @@ CallbackReturn LidarMergerNode::on_activate(const rclcpp_lifecycle::State &state
 }
 
 // 3. DEACTIVATE: Disable publisher
-CallbackReturn LidarMergerNode::on_deactivate(const rclcpp_lifecycle::State &state) {
-    (void)state;
+CallbackReturn LidarMergerNode::on_deactivate(const rclcpp_lifecycle::State &) {
     RCLCPP_INFO(get_logger(), "Deactivating Lidar Merger Component...");
 
     publisher_->on_deactivate();
@@ -146,8 +143,7 @@ CallbackReturn LidarMergerNode::on_cleanup(const rclcpp_lifecycle::State &) {
 }
 
 // 5. SHUTDOWN
-CallbackReturn LidarMergerNode::on_shutdown(const rclcpp_lifecycle::State &state) {
-    (void)state;
+CallbackReturn LidarMergerNode::on_shutdown(const rclcpp_lifecycle::State &) {
     RCLCPP_INFO(get_logger(), "Shutting down Lidar Merger Component...");
 
     sync_.reset();
@@ -168,7 +164,15 @@ CallbackReturn LidarMergerNode::on_error(const rclcpp_lifecycle::State &previous
 }
 
 void LidarMergerNode::power_callback(const std_msgs::msg::Bool::SharedPtr msg) {
+    // Prevent redundant processing and I/O log spam
+    if (has_power_ == msg->data) {
+        return;
+    }
+
+    // Commit the validation state.
     has_power_ = msg->data;
+
+    // Execute reaction policies based on the new hardware state.
     if (!has_power_) {
         RCLCPP_ERROR(this->get_logger(), "POWER CUT! Perception module is going blind...");
     } else {
