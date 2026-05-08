@@ -196,7 +196,7 @@ TEST_F(SafetyLogicFixture, EstopServiceOpensContactors) {
 
     // Act: Trigger software E-STOP via service call
     auto request = std::make_shared<std_srvs::srv::Trigger::Request>();
-    auto result  = estop_client_->async_send_request(request);
+    estop_client_->async_send_request(request);
     spin_for_milliseconds(200);
 
     // Assert: Hardware contactors must be physically disconnected (false)

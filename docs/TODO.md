@@ -2,15 +2,15 @@
 
 ## Priority Tasks
 
-- [ ] **P0 / High** Fix `TwistMuxNode::control_loop()` state handling after safety unblock.  
+- [x] **P0 / High** Fix `TwistMuxNode::control_loop()` state handling after safety unblock.  
       Ensure `BLOCKED` is treated as a valid transitional state and does not trigger fatal exception during normal recovery.
 
-- [ ] **P1 / Medium** Reorder FDIR initialization in `FdirManagerNode`.  
+- [x] **P1 / Medium** Reorder FDIR initialization in `FdirManagerNode`.  
       Move `monitor_timer_` creation to after `init_managed_nodes()` to avoid startup race in multi-threaded execution.
 
 ## Validation Tasks
 
-- [ ] Add or update test scenario: `BLOCKED -> unblocked -> stable IDLE/MANUAL/AUTONOMOUS` without process crash.
+- [x] Add or update test scenario: `BLOCKED -> unblocked -> stable IDLE/MANUAL/AUTONOMOUS` without process crash.
 - [ ] Add startup robustness test for FDIR manager under multi-threaded executor.
 - [ ] Run lifecycle transition checks for emergency stop and recovery path.
 
